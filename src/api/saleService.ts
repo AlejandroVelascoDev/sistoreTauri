@@ -5,6 +5,7 @@ export type SaleItemModel = {
   quantity: number;
   unit_price: number;
 };
+
 export type CreateSaleRequest = {
   items: SaleItemModel[];
   subtotal: number;
@@ -14,9 +15,10 @@ export type CreateSaleRequest = {
 
 export const SaleService = {
   async create(payload: CreateSaleRequest): Promise<number> {
-    return (await invoke("sale_service_create", payload)) as number;
+    return await invoke("sale_service_create", { req: payload });
   },
+
   async getAll(): Promise<any[]> {
-    return (await invoke("sale_service_get_all")) as any[];
+    return await invoke("sale_service_get_all");
   },
 };

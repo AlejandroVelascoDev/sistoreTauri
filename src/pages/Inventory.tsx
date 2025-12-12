@@ -7,7 +7,6 @@ import {
   Trash2,
   AlertCircle,
   X,
-  Check,
   TrendingUp,
   TrendingDown,
   DollarSign,
@@ -57,7 +56,8 @@ export default function Inventory() {
 
     try {
       if (editingProduct) {
-        await ProductService.update(editingProduct.id, {
+        await ProductService.update({
+          id: editingProduct.id,
           name,
           price: Number(price),
           stock: Number(stock),
@@ -76,6 +76,7 @@ export default function Inventory() {
       closeModal();
     } catch (error) {
       console.error("Failed to save product:", error);
+      alert(`Error: ${error}`); // Agrega esto para ver el error completo
     }
   }
 

@@ -22,6 +22,7 @@ export default function Sales() {
   // API data
   const [products, setProducts] = useState<ProductModel[]>([]);
   const [sales, setSales] = useState<any[]>([]);
+  const [lastSaleTotal, setLastSaleTotal] = useState(0);
 
   // UI state
   const [search, setSearch] = useState("");
@@ -109,6 +110,8 @@ export default function Sales() {
     if (cart.length === 0) return;
 
     try {
+      const saleTotal = total;
+
       await SaleService.create({
         items: cart.map((c) => ({
           product_id: c.id,
@@ -125,6 +128,7 @@ export default function Sales() {
       setSales(await SaleService.getAll());
 
       setCart([]);
+      setLastSaleTotal(saleTotal);
       setShowConfirmation(true);
       setTimeout(() => setShowConfirmation(false), 3000);
     } catch (err) {
@@ -352,7 +356,7 @@ export default function Sales() {
               <div className="flex justify-between text-gray-400 mb-2">
                 <span>Total:</span>
                 <span className="text-green-400 font-bold text-xl">
-                  ${total.toFixed(2)}
+                  ${lastSaleTotal.toFixed(2)}
                 </span>
               </div>
             </div>
