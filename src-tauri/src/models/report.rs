@@ -1,28 +1,25 @@
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ProductModel {
+pub struct ReportModel {
     pub id: i64,
     pub name: String,
-    pub price: f64,
-    pub stock: i64,
     pub category: Option<String>,
     pub created_at: String,
+    pub description: Option<String>
 }
 
 #[derive(Deserialize, Debug)]
-pub struct CreateProductRequest {
+pub struct CreateReportRequest {
     pub name: String,
-    pub price: f64,
-    pub stock: i64,
     pub category: Option<String>,
+    pub description: Option<String>
 }
 
 #[derive(Deserialize, Debug)]
-pub struct UpdateProductRequest {
+pub struct UpdateReportRequest {
     pub id: i64,
     pub name: String,
-    pub price: f64,
-    pub stock: i64,
     pub category: Option<String>,
+    pub description: Option<String>
 }
