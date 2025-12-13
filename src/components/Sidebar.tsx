@@ -20,18 +20,23 @@ export default function Sidebar() {
     { path: "settings", icon: Settings, label: "Configuración" },
   ];
 
-  const isActive = (path: string) => location.pathname.startsWith(path);
+  const isActive = (path: string) => {
+    if (path === "/") {
+      return location.pathname === "/";
+    }
+    return location.pathname.startsWith(`/${path}`);
+  };
 
   return (
-    <aside className="w-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-gray-100 h-screen flex flex-col shadow-2xl border-r border-slate-700/50">
+    <aside className="w-72 bg-linear-to-b from-slate-900 via-slate-800 to-slate-900 text-gray-100 h-screen flex flex-col shadow-2xl border-r border-slate-700/50">
       {/* Header */}
       <div className="p-6 border-b border-slate-700/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+          <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
             <DollarSign className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               SisStore
             </h2>
             <p className="text-xs text-gray-400">Sistema POS</p>
@@ -71,7 +76,7 @@ export default function Sidebar() {
               </div>
 
               {!active && (
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-600/5 to-purple-600/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 bg-linear-to-r from-blue-600/0 via-blue-600/5 to-purple-600/0 opacity-0 group-hover:opacity-100 transition-opacity" />
               )}
             </Link>
           );
@@ -82,7 +87,7 @@ export default function Sidebar() {
       <div className="p-4 border-t border-slate-700/50">
         <div className="bg-slate-800/50 rounded-xl p-4 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
+            <div className="w-10 h-10 bg-linear-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
               A
             </div>
             <div className="flex-1">

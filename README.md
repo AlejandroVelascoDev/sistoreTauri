@@ -8,3 +8,4 @@ This template should help get you started developing with Tauri, React and Types
 
 preview of project ; <img width="1814" height="894" alt="image" src="https://github.com/user-attachments/assets/6ca651d0-7a42-4ec3-a1aa-47f852e23ba7" />
 
+# For run project first enter to src-tauri with cd src-tauri, run command "cargo run" & in systore file run "npx/npm/bun tauri dev"

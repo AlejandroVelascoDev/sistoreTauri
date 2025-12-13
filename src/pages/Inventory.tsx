@@ -122,10 +122,10 @@ export default function Inventory() {
   const lowStock = products.filter((p) => p.stock < 10).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
+    <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
       {/* Header */}
       <div className="mb-8">
-        <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+        <h2 className="text-4xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
           Inventario
         </h2>
         <p className="text-gray-400">Gestiona tus productos y stock</p>
@@ -133,9 +133,9 @@ export default function Inventory() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700/50 shadow-xl">
+        <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700/50 shadow-xl">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
               <Package className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -145,9 +145,9 @@ export default function Inventory() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700/50 shadow-xl">
+        <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700/50 shadow-xl">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-linear-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
               <DollarSign className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -159,9 +159,9 @@ export default function Inventory() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700/50 shadow-xl">
+        <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700/50 shadow-xl">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-linear-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
               <AlertCircle className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -173,7 +173,7 @@ export default function Inventory() {
       </div>
 
       {/* Toolbar */}
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700/50 shadow-xl mb-6">
+      <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700/50 shadow-xl mb-6">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative flex-1 w-full md:w-auto">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -197,7 +197,7 @@ export default function Inventory() {
       </div>
 
       {/* Products Table */}
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden">
+      <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
           {filteredProducts.length === 0 ? (
             <div className="p-12 text-center">
@@ -254,7 +254,7 @@ export default function Inventory() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                           <Package className="w-5 h-5 text-white" />
                         </div>
                         <span className="text-white font-medium">
@@ -322,7 +322,7 @@ export default function Inventory() {
       {/* Modal Create/Edit */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-md shadow-2xl">
+          <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-md shadow-2xl">
             <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
               <h3 className="text-2xl font-bold text-white">
                 {editingProduct ? "Editar Producto" : "Nuevo Producto"}
@@ -404,7 +404,7 @@ export default function Inventory() {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50"
+                  className="flex-1 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50"
                 >
                   {editingProduct ? "Actualizar" : "Crear"}
                 </button>
@@ -417,7 +417,7 @@ export default function Inventory() {
       {/* Modal Delete Confirmation */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-md shadow-2xl p-6">
+          <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-md shadow-2xl p-6">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-8 h-8 text-red-400" />
             </div>
@@ -437,7 +437,7 @@ export default function Inventory() {
               </button>
               <button
                 onClick={() => handleDelete(showDeleteConfirm)}
-                className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-red-500/30 hover:shadow-red-500/50"
+                className="flex-1 bg-linear-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-red-500/30 hover:shadow-red-500/50"
               >
                 Eliminar
               </button>
