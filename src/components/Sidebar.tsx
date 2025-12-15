@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Home,
   ShoppingCart,
@@ -10,14 +11,15 @@ import {
 } from "lucide-react";
 
 export default function Sidebar() {
+  const { t } = useTranslation();
   const location = useLocation();
 
   const menuItems = [
-    { path: "/", icon: Home, label: "Dashboard" },
-    { path: "sales", icon: ShoppingCart, label: "Ventas" },
-    { path: "inventory", icon: Package, label: "Inventario" },
-    { path: "reports", icon: TrendingUp, label: "Reportes" },
-    { path: "settings", icon: Settings, label: "Configuración" },
+    { path: "/", icon: Home, label: t("Dashboard") },
+    { path: "sales", icon: ShoppingCart, label: t("Ventas") },
+    { path: "inventory", icon: Package, label: t("Inventario") },
+    { path: "reports", icon: TrendingUp, label: t("Reportes") },
+    { path: "settings", icon: Settings, label: t("Configuración") },
   ];
 
   const isActive = (path: string) => {

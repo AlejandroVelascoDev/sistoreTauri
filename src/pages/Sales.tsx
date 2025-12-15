@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Search,
   ShoppingCart,
@@ -19,6 +20,7 @@ import {
 import { SaleService } from "../api/saleService";
 
 export default function Sales() {
+  const { t } = useTranslation();
   // API data
   const [products, setProducts] = useState<ProductModel[]>([]);
   const [sales, setSales] = useState<any[]>([]);
@@ -142,10 +144,10 @@ export default function Sales() {
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-4xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
-          Punto de Venta
+          {t("Punto de Venta")}
         </h2>
         <p className="text-gray-400">
-          Selecciona productos para agregar a la venta
+          {t("Selecciona productos para agregar a la venta")}
         </p>
       </div>
 
@@ -158,7 +160,7 @@ export default function Sales() {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Buscar productos por nombre o categoría..."
+                placeholder={t("Buscar productos por nombre o categoría...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
@@ -194,7 +196,7 @@ export default function Sales() {
                           : "bg-red-500/10 text-red-400"
                       }`}
                     >
-                      Stock: {product.stock}
+                      {t("Stock")}: {product.stock}
                     </div>
                   </div>
 
@@ -209,7 +211,7 @@ export default function Sales() {
                       className="bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:from-gray-600 disabled:to-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:scale-105 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       <Plus className="w-4 h-4" />
-                      Agregar
+                      {t("Agregar")}
                     </button>
                   </div>
                 </div>
@@ -217,7 +219,7 @@ export default function Sales() {
             ) : (
               <div className="col-span-2 bg-slate-800/50 rounded-xl p-12 text-center border border-slate-700/50">
                 <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">No se encontraron productos</p>
+                <p className="text-gray-400">{t("No se encontraron productos")}</p>
               </div>
             )}
           </div>
@@ -232,9 +234,9 @@ export default function Sales() {
                 <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                   <ShoppingCart className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Carrito</h3>
+                <h3 className="text-xl font-bold text-white">{t("Carrito")}</h3>
               </div>
-              <p className="text-gray-400 text-sm">{cart.length} productos</p>
+              <p className="text-gray-400 text-sm">{cart.length} {t("productos")}</p>
             </div>
 
             {/* CART ITEMS */}
@@ -290,7 +292,7 @@ export default function Sales() {
               ) : (
                 <div className="text-center py-12">
                   <ShoppingCart className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">El carrito está vacío</p>
+                  <p className="text-gray-400">{t("El carrito está vacío")}</p>
                 </div>
               )}
             </div>
@@ -300,17 +302,17 @@ export default function Sales() {
               <>
                 <div className="p-6 border-t border-slate-700/50 space-y-3">
                   <div className="flex justify-between text-gray-400">
-                    <span>Subtotal:</span>
+                    <span>{t("Subtotal")}:</span>
                     <span>${subtotal.toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between text-gray-400">
-                    <span>Impuesto (19%):</span>
+                    <span>{t("Impuesto (19%)")}:</span>
                     <span>${tax.toFixed(2)}</span>
                   </div>
 
                   <div className="flex justify-between text-white text-xl font-bold pt-3 border-t border-slate-700/50">
-                    <span>Total:</span>
+                    <span>{t("Total")}:</span>
                     <span className="text-green-400">${total.toFixed(2)}</span>
                   </div>
                 </div>
@@ -322,7 +324,7 @@ export default function Sales() {
                     className="w-full bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-green-500/30 hover:shadow-green-500/50 hover:scale-105 flex items-center justify-center gap-2"
                   >
                     <Check className="w-5 h-5" />
-                    Completar Venta
+                    {t("Completar Venta")}
                   </button>
 
                   <button
@@ -330,7 +332,7 @@ export default function Sales() {
                     className="w-full bg-slate-700/50 hover:bg-red-600/20 text-gray-300 hover:text-red-400 font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-red-500/50 flex items-center justify-center gap-2"
                   >
                     <X className="w-5 h-5" />
-                    Cancelar
+                    {t("Cancelar")}
                   </button>
                 </div>
               </>
@@ -347,14 +349,14 @@ export default function Sales() {
               <Check className="w-8 h-8 text-white" />
             </div>
             <h3 className="text-2xl font-bold text-white text-center mb-2">
-              ¡Venta completada!
+              {t("¡Venta completada!")}
             </h3>
             <p className="text-gray-400 text-center">
-              La venta se ha registrado exitosamente
+              {t("La venta se ha registrado exitosamente")}
             </p>
             <div className="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700/30">
               <div className="flex justify-between text-gray-400 mb-2">
-                <span>Total:</span>
+                <span>{t("Total")}:</span>
                 <span className="text-green-400 font-bold text-xl">
                   ${lastSaleTotal.toFixed(2)}
                 </span>

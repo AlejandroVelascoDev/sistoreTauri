@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Palette,
   Globe,
@@ -13,19 +14,23 @@ import {
 } from "lucide-react";
 
 export default function Settings() {
+  const { t, i18n } = useTranslation();
   const [theme, setTheme] = useState("dark");
-  const [language, setLanguage] = useState("es");
   const [notifications, setNotifications] = useState(true);
   const [soundEffects, setSoundEffects] = useState(true);
 
+  const setLanguage = (language: string) => {
+    i18n.changeLanguage(language);
+  };
+
   const settingsSections = [
     {
-      title: "Apariencia",
+      title: t("Apariencia"),
       icon: Palette,
       items: [
         {
-          label: "Tema",
-          description: "Personaliza el aspecto visual de la aplicación",
+          label: t("Tema"),
+          description: t("Personaliza el aspecto visual de la aplicación"),
           type: "theme",
           value: theme,
           onChange: setTheme,
@@ -33,32 +38,32 @@ export default function Settings() {
       ],
     },
     {
-      title: "Idioma y Región",
+      title: t("Idioma y Región"),
       icon: Globe,
       items: [
         {
-          label: "Idioma",
-          description: "Selecciona el idioma de la interfaz",
+          label: t("Idioma"),
+          description: t("Selecciona el idioma de la interfaz"),
           type: "language",
-          value: language,
+          value: i18n.language,
           onChange: setLanguage,
         },
       ],
     },
     {
-      title: "Notificaciones",
+      title: t("Notificaciones"),
       icon: Bell,
       items: [
         {
-          label: "Notificaciones push",
-          description: "Recibe alertas de ventas y actualizaciones",
+          label: t("Notificaciones push"),
+          description: t("Recibe alertas de ventas y actualizaciones"),
           type: "toggle",
           value: notifications,
           onChange: setNotifications,
         },
         {
-          label: "Efectos de sonido",
-          description: "Reproducir sonidos en acciones importantes",
+          label: t("Efectos de sonido"),
+          description: t("Reproducir sonidos en acciones importantes"),
           type: "toggle",
           value: soundEffects,
           onChange: setSoundEffects,
@@ -66,33 +71,33 @@ export default function Settings() {
       ],
     },
     {
-      title: "Seguridad",
+      title: t("Seguridad"),
       icon: Shield,
       items: [
         {
-          label: "Autenticación de dos factores",
-          description: "Añade una capa extra de seguridad",
+          label: t("Autenticación de dos factores"),
+          description: t("Añade una capa extra de seguridad"),
           type: "link",
         },
         {
-          label: "Cambiar contraseña",
-          description: "Actualiza tu contraseña periódicamente",
+          label: t("Cambiar contraseña"),
+          description: t("Actualiza tu contraseña periódicamente"),
           type: "link",
         },
       ],
     },
     {
-      title: "Cuenta",
+      title: t("Cuenta"),
       icon: User,
       items: [
         {
-          label: "Perfil de usuario",
-          description: "Administra tu información personal",
+          label: t("Perfil de usuario"),
+          description: t("Administra tu información personal"),
           type: "link",
         },
         {
-          label: "Preferencias de datos",
-          description: "Controla cómo se usan tus datos",
+          label: t("Preferencias de datos"),
+          description: t("Controla cómo se usan tus datos"),
           type: "link",
         },
       ],
@@ -100,25 +105,23 @@ export default function Settings() {
   ];
 
   const themes = [
-    { value: "light", label: "Claro", icon: Sun },
-    { value: "dark", label: "Oscuro", icon: Moon },
-    { value: "system", label: "Sistema", icon: Monitor },
+    { value: "light", label: t("Claro"), icon: Sun },
+    { value: "dark", label: t("Oscuro"), icon: Moon },
+    { value: "system", label: t("Sistema"), icon: Monitor },
   ];
 
   const languages = [
-    { value: "es", label: "Español", flag: "🇪🇸" },
-    { value: "en", label: "English", flag: "🇺🇸" },
-    { value: "pt", label: "Português", flag: "🇧🇷" },
-    { value: "fr", label: "Français", flag: "🇫🇷" },
+    { value: "es", label: t("Español"), flag: "🇪🇸" },
+    { value: "en", label: t("Inglés"), flag: "🇺🇸" },
   ];
 
   return (
     <div className="bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 p-8 overflow-y-auto min-h-screen">
       <div className="mb-8">
         <h2 className="text-4xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
-          Configuración
+          {t("Ajustes")}
         </h2>
-        <p className="text-gray-400">Personaliza tu experiencia en SisStore</p>
+        <p className="text-gray-400">{t("Personaliza tu experiencia en SisStore")}</p>
       </div>
 
       <div className="space-y-6">
@@ -246,17 +249,17 @@ export default function Settings() {
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-bold text-red-400 mb-1">
-              Zona de peligro
+              {t("Zona de peligro")}
             </h3>
             <p className="text-sm text-gray-400 mb-4">
-              Estas acciones son irreversibles. Procede con precaución.
+              {t("Estas acciones son irreversibles. Procede con precaución.")}
             </p>
             <div className="flex gap-3">
               <button className="px-4 py-2 bg-slate-700/50 border border-red-900/50 text-red-400 rounded-lg hover:bg-red-950/50 transition-all text-sm font-medium">
-                Limpiar datos locales
+                {t("Limpiar datos locales")}
               </button>
               <button className="px-4 py-2 bg-linear-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-500 hover:to-red-600 transition-all text-sm font-medium shadow-lg shadow-red-500/30">
-                Eliminar cuenta
+                {t("Eliminar cuenta")}
               </button>
             </div>
           </div>

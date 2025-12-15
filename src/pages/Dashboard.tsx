@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   DollarSign,
   Users,
@@ -9,30 +10,83 @@ import {
   ArrowUpRight,
   Clock,
 } from "lucide-react";
+import { ProductService } from "../api/productService";
+import { SaleService } from "../api/saleService";
+
+interface StatCardProps {
+  title: string;
+  value: number;
+  cambio: number;
+  icon: React.ComponentType<{ className: string }>;
+  color: string;
+  prefix?: string;
+}
 
 export default function Dashboard() {
-  const [stats] = useState({
-    ventasHoy: { valor: 12450, cambio: 12.5 },
+  const { t } = useTranslation();
+  const [stats, setStats] = useState({
+    ventasHoy: { valor: 0, cambio: 0 },
     usuarios: { valor: 248, cambio: 8.2 },
-    ordenes: { valor: 52, cambio: -3.1 },
-    inventario: { valor: 1284, cambio: 5.7 },
+    ordenes: { valor: 0, cambio: 0 },
+    inventario: { valor: 0, cambio: 0 },
   });
+  const [recentSales, setRecentSales] = useState([]);
 
-  const [recentSales] = useState([
-    { id: "#0012", cliente: "Juan Pérez", monto: 450, hora: "10:30 AM" },
-    { id: "#0011", cliente: "María García", monto: 890, hora: "10:15 AM" },
-    { id: "#0010", cliente: "Carlos López", monto: 320, hora: "09:45 AM" },
-  ]);
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const products = await ProductService.getAll();
+        const sales = await SaleService.getAll();
+
+        const today = new Date().toDateString();
+
+        const salesToday = sales.filter(
+          (sale) => new Date(sale.created_at).toDateString() === today
+        );
+
+        const ventasHoy = salesToday.reduce((sum, s) => sum + s.total, 0);
+        const ordenesHoy = salesToday.length;
+        const inventario = products.reduce((sum, p) => sum + p.stock, 0);
+
+        const sortedSales = sales.sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
+
+        const recentSalesData = sortedSales.slice(0, 3).map((sale) => ({
+          id: `#${String(sale.id).padStart(4, "0")}`,
+          cliente: "Ticket #" + sale.id,
+          monto: sale.total,
+          hora: new Date(sale.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        }));
+
+        setStats({
+          ventasHoy: { valor: ventasHoy, cambio: 0 },
+          usuarios: { valor: 248, cambio: 8.2 },
+          ordenes: { valor: ordenesHoy, cambio: 0 },
+          inventario: { valor: inventario, cambio: 0 },
+        });
+
+        setRecentSales(recentSalesData);
+      } catch (error) {
+        console.error("Failed to load dashboard data:", error);
+      }
+    }
+
+    loadData();
+  }, []);
 
   const StatCard = ({
-    titulo,
-    valor,
+    title,
+    value,
     cambio,
-    icono: Icon,
+    icon: Icon,
     color,
     prefix = "$",
-  }) => {
-    const esPositivo = cambio > 0;
+  }: StatCardProps) => {
+    const esPositivo = cambio >= 0;
 
     return (
       <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 group">
@@ -58,14 +112,14 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <h3 className="text-gray-400 text-sm font-medium mb-1">{titulo}</h3>
+        <h3 className="text-gray-400 text-sm font-medium mb-1">{title}</h3>
         <p className="text-3xl font-bold text-white">
           {prefix}
-          {typeof valor === "number" ? valor.toLocaleString() : valor}
+          {typeof value === "number" ? value.toLocaleString() : value}
         </p>
 
         <div className="mt-3 pt-3 border-t border-slate-700/50">
-          <p className="text-xs text-gray-500">vs. día anterior</p>
+          <p className="text-xs text-gray-500">{t("vs. día anterior")}</p>
         </div>
       </div>
     );
@@ -76,45 +130,47 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-4xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
-          Dashboard
+          {t("Dashboard")}
         </h2>
-        <p className="text-gray-400">Resumen de tu tienda en tiempo real</p>
+        <p className="text-gray-400">
+          {t("Resumen de tu tienda en tiempo real")}
+        </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
-          titulo="Ventas hoy"
-          valor={stats.ventasHoy.valor}
+          title={t("Ventas hoy")}
+          value={stats.ventasHoy.valor}
           cambio={stats.ventasHoy.cambio}
-          icono={DollarSign}
+          icon={DollarSign}
           color="from-blue-500 to-blue-600"
           prefix="$"
         />
 
         <StatCard
-          titulo="Usuarios activos"
-          valor={stats.usuarios.valor}
+          title={t("Usuarios activos")}
+          value={stats.usuarios.valor}
           cambio={stats.usuarios.cambio}
-          icono={Users}
+          icon={Users}
           color="from-purple-500 to-purple-600"
           prefix=""
         />
 
         <StatCard
-          titulo="Órdenes hoy"
-          valor={stats.ordenes.valor}
+          title={t("Órdenes hoy")}
+          value={stats.ordenes.valor}
           cambio={stats.ordenes.cambio}
-          icono={ShoppingCart}
+          icon={ShoppingCart}
           color="from-green-500 to-green-600"
           prefix=""
         />
 
         <StatCard
-          titulo="Productos stock"
-          valor={stats.inventario.valor}
+          title={t("Productos stock")}
+          value={stats.inventario.valor}
           cambio={stats.inventario.cambio}
-          icono={Package}
+          icon={Package}
           color="from-orange-500 to-orange-600"
           prefix=""
         />
@@ -125,9 +181,11 @@ export default function Dashboard() {
         {/* Ventas Recientes */}
         <div className="lg:col-span-2 bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl border border-slate-700/50">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-white">Ventas recientes</h3>
+            <h3 className="text-xl font-bold text-white">
+              {t("Ventas recientes")}
+            </h3>
             <button className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-1 transition-colors">
-              Ver todas
+              {t("Ver todas")}
               <ArrowUpRight className="w-4 h-4" />
             </button>
           </div>
@@ -165,34 +223,34 @@ export default function Dashboard() {
         {/* Quick Actions */}
         <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl border border-slate-700/50">
           <h3 className="text-xl font-bold text-white mb-6">
-            Acciones rápidas
+            {t("Acciones rápidas")}
           </h3>
 
           <div className="space-y-3">
             <button className="w-full bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-105">
-              Nueva venta
+              {t("Nueva venta")}
             </button>
 
             <button className="w-full bg-slate-700/50 hover:bg-slate-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-slate-500">
-              Agregar producto
+              {t("Agregar producto")}
             </button>
 
             <button className="w-full bg-slate-700/50 hover:bg-slate-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-slate-500">
-              Registrar cliente
+              {t("Registrar cliente")}
             </button>
 
             <button className="w-full bg-slate-700/50 hover:bg-slate-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-slate-500">
-              Ver reportes
+              {t("Ver reportes")}
             </button>
           </div>
 
           <div className="mt-6 pt-6 border-t border-slate-700/50">
             <div className="bg-linear-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-4">
               <p className="text-green-400 text-sm font-medium mb-1">
-                Estado del sistema
+                {t("Estado del sistema")}
               </p>
               <p className="text-gray-400 text-xs">
-                Todos los servicios operando normalmente
+                {t("Todos los servicios operando normalmente")}
               </p>
             </div>
           </div>
