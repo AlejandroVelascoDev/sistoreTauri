@@ -6,8 +6,7 @@ import {
   Package,
   Settings,
   TrendingUp,
-  DollarSign,
-  ChevronRight,
+  Store,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -30,24 +29,27 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-72 bg-linear-to-b from-slate-900 via-slate-800 to-slate-900 text-gray-100 h-screen flex flex-col shadow-2xl border-r border-slate-700/50">
+    <aside className="w-64 bg-sidebar text-sidebar-foreground h-screen flex flex-col border-r border-border">
       {/* Header */}
-      <div className="p-6 border-b border-slate-700/50">
+      <div className="px-6 h-16 flex items-center border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-            <DollarSign className="w-6 h-6 text-white" />
+          <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
+            <Store className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <h2 className="text-base font-semibold tracking-tight text-foreground">
               SisStore
             </h2>
-            <p className="text-xs text-gray-400">Sistema POS</p>
+            <p className="text-xs text-muted-foreground">Sistema POS</p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {t("Menú")}
+        </p>
         {menuItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -57,45 +59,41 @@ export default function Sidebar() {
               key={item.path}
               to={item.path}
               className={`
-                group flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl
-                transition-all duration-200 relative overflow-hidden
+                group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                transition-colors duration-150
                 ${
                   active
-                    ? "bg-slate-800/50 text-white shadow-lg shadow-blue-500/30"
-                    : "hover:bg-slate-800/70 text-gray-300 hover:text-white"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }
               `}
             >
-              <div className="flex items-center gap-3 relative z-10">
-                <Icon
-                  className={`w-5 h-5 transition-colors ${
-                    active
-                      ? "text-white"
-                      : "text-gray-400 group-hover:text-blue-400"
-                  }`}
-                />
-                <span className="font-medium">{item.label}</span>
-              </div>
-
-              {!active && (
-                <div className="absolute inset-0 bg-linear-to-r from-blue-600/0 via-blue-600/5 to-purple-600/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-              )}
+              <Icon
+                className={`w-[18px] h-[18px] transition-colors ${
+                  active
+                    ? "text-primary"
+                    : "text-muted-foreground group-hover:text-foreground"
+                }`}
+              />
+              <span>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-700/50">
-        <div className="bg-slate-800/50 rounded-xl p-4 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-linear-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
-              A
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">Admin</p>
-              <p className="text-xs text-gray-400">Administrador</p>
-            </div>
+      <div className="p-3 border-t border-border">
+        <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted transition-colors">
+          <div className="w-9 h-9 bg-foreground rounded-full flex items-center justify-center text-background font-semibold text-sm">
+            A
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">
+              Admin
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              Administrador
+            </p>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { ReactNode } from "react";
+import { ReactNode, MouseEvent } from "react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ export default function Modal({
     full: "max-w-full mx-4",
   };
 
-  const handleBackdropClick = (e) => {
+  const handleBackdropClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
@@ -37,22 +37,26 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-foreground/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
       onClick={handleBackdropClick}
     >
       <div
-        className={`bg-linear-to-r from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 shadow-2xl w-full ${sizeClasses[size]} animate-modal-appear`}
+        className={`bg-card rounded-2xl border border-border shadow-2xl w-full ${sizeClasses[size]} animate-modal-appear`}
       >
         {(title || showCloseButton) && (
-          <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
-            {title && <h3 className="text-xl font-bold text-white">{title}</h3>}
+          <div className="px-6 py-5 border-b border-border flex items-center justify-between">
+            {title && (
+              <h3 className="text-lg font-semibold text-card-foreground">
+                {title}
+              </h3>
+            )}
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors ml-auto"
+                className="p-2 hover:bg-muted rounded-lg transition-colors ml-auto"
                 aria-label="Cerrar modal"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-5 h-5 text-muted-foreground" />
               </button>
             )}
           </div>
@@ -60,22 +64,6 @@ export default function Modal({
 
         <div className="p-6">{children}</div>
       </div>
-
-      <style>{`
-        @keyframes modal-appear {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        .animate-modal-appear {
-          animation: modal-appear 0.2s ease-out;
-        }
-      `}</style>
     </div>
   );
 }
@@ -89,7 +77,7 @@ export function ModalFooter({
 }) {
   return (
     <div
-      className={`flex gap-3 pt-4 border-t border-slate-700/50 mt-6 ${className}`}
+      className={`flex gap-3 pt-4 border-t border-border mt-6 ${className}`}
     >
       {children}
     </div>
@@ -107,7 +95,7 @@ export function ModalCancelButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex-1 px-4 py-3 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-600/50"
+      className="flex-1 px-4 py-2.5 bg-muted hover:bg-border text-foreground rounded-lg transition-colors font-medium"
     >
       {children}
     </button>
@@ -128,10 +116,10 @@ export function ModalConfirmButton({
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="flex-1 px-4 py-3 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-lg transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
     >
       {loading && (
-        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
       )}
       {children}
     </button>

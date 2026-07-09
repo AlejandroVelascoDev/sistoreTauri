@@ -1,8 +1,88 @@
 @import "tailwindcss";
-@tailwind utilities;
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Neutrals */
+  --color-background: #f6f7f9;
+  --color-foreground: #1c1e21;
+  --color-card: #ffffff;
+  --color-card-foreground: #1c1e21;
+  --color-muted: #f1f2f4;
+  --color-muted-foreground: #6b7280;
+  --color-border: #e6e8eb;
+  --color-input: #e6e8eb;
+  --color-ring: #10b981;
+
+  /* Sidebar */
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #1c1e21;
+
+  /* Single accent */
+  --color-primary: #10b981;
+  --color-primary-foreground: #ffffff;
+
+  /* Semantic status */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+
+  --radius: 0.75rem;
+}
 
 @layer base {
-  body {
-    @apply bg-gray-100 text-gray-900;
+  * {
+    border-color: var(--color-border);
   }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Refined, minimal scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.animate-modal-appear {
+  animation: modal-appear 0.18s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
 }
