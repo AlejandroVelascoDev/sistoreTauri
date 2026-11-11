@@ -42,7 +42,7 @@ export default function TopNav() {
   const items = [
     { to: "/", icon: Home, label: t("Dashboard") },
     { to: "/sales", icon: ShoppingCart, label: t("Ventas") },
-    { to: "/corte", icon: Calculator, label: t("Corte de caja") },
+    { to: "/corte", icon: Calculator, label: t("Corte") },
     { to: "/inventory", icon: Package, label: t("Inventario") },
     { to: "/reports", icon: TrendingUp, label: t("Reportes") },
     { to: "/settings", icon: Settings, label: t("Configuración") },
@@ -107,9 +107,9 @@ export default function TopNav() {
             onClick={signOut}
             aria-label={t("Cerrar sesión")}
             title={t("Cerrar sesión")}
-            className={`${btnGhost} h-8 w-8 px-0`}
+            className={`${btnGhost} size-10 px-0`}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="size-full" />
           </button>
         </div>
       </div>
