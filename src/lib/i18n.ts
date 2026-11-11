@@ -199,6 +199,13 @@ i18n.use(initReactI18next).init({
           "Ex: Change error on the afternoon sale",
         "Realizar corte final": "Complete final count",
 
+        Ticket: "Ticket",
+        Todos: "All",
+        Exacto: "Exact",
+        Agotado: "Out",
+        Faltan: "Missing",
+        "Caja abierta": "Register open",
+        "Caja cerrada": "Register closed",
         General: "General",
         Bebidas: "Drinks",
         Empaquetados: "Packaged",

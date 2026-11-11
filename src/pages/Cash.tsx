@@ -40,6 +40,7 @@ export default function Cash() {
       setCurrent(summary);
       setHistory(closed);
       setError(null);
+      window.dispatchEvent(new Event("cash-changed"));
     } catch (err) {
       setError(String(err));
     } finally {
