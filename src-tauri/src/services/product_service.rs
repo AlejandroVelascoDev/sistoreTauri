@@ -1,8 +1,23 @@
 use crate::db::open_database;
 use crate::models::product::{CreateProductRequest, ProductModel, UpdateProductRequest};
 use chrono::Utc;
-use rusqlite::params;
+use rusqlite::{params, Error as SqlError};
 use tauri::{command, AppHandle};
+
+fn clean_barcode(barcode: Option<String>) -> Option<String> {
+    barcode
+        .map(|b| b.trim().to_string())
+        .filter(|b| !b.is_empty())
+}
+
+fn map_write_error(e: SqlError) -> String {
+    let message = e.to_string();
+    if message.contains("UNIQUE") && message.contains("barcode") {
+        "Ya existe un producto con ese código de barras".to_string()
+    } else {
+        message
+    }
+}
 
 #[command]
 pub fn product_service_get_all(app: AppHandle) -> Result<Vec<ProductModel>, String> {
@@ -10,7 +25,7 @@ pub fn product_service_get_all(app: AppHandle) -> Result<Vec<ProductModel>, Stri
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, price, stock, category, created_at FROM products ORDER BY id DESC",
+            "SELECT id, name, price, stock, category, created_at, barcode FROM products ORDER BY id DESC",
         )
         .map_err(|e| e.to_string())?;
 
@@ -23,6 +38,7 @@ pub fn product_service_get_all(app: AppHandle) -> Result<Vec<ProductModel>, Stri
                 stock: row.get(3)?,
                 category: row.get(4).ok(),
                 created_at: row.get(5)?,
+                barcode: row.get(6)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -40,7 +56,7 @@ pub fn product_service_get_one(app: AppHandle, id: i64) -> Result<Option<Product
     let mut conn = open_database(&app);
 
     let mut stmt = conn
-        .prepare("SELECT id, name, price, stock, category, created_at FROM products WHERE id = ?1")
+        .prepare("SELECT id, name, price, stock, category, created_at, barcode FROM products WHERE id = ?1")
         .map_err(|e| e.to_string())?;
 
     let mut rows = stmt
@@ -52,6 +68,7 @@ pub fn product_service_get_one(app: AppHandle, id: i64) -> Result<Option<Product
                 stock: row.get(3)?,
                 category: row.get(4).ok(),
                 created_at: row.get(5)?,
+                barcode: row.get(6)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -71,13 +88,14 @@ pub fn product_service_create(
     let mut conn = open_database(&app);
 
     let now = Utc::now().to_rfc3339();
+    let barcode = clean_barcode(req.barcode);
 
     conn.execute(
-        "INSERT INTO products (name, price, stock, category, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![req.name, req.price, req.stock, req.category, now],
+        "INSERT INTO products (name, price, stock, category, created_at, barcode)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![req.name, req.price, req.stock, req.category, now, barcode],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(map_write_error)?;
 
     Ok(conn.last_insert_rowid())
 }
@@ -89,11 +107,13 @@ pub fn product_service_update(
 ) -> Result<(), String> {
     let mut conn = open_database(&app);
 
+    let barcode = clean_barcode(req.barcode);
+
     conn.execute(
-        "UPDATE products SET name = ?1, price = ?2, stock = ?3, category = ?4 WHERE id = ?5",
-        params![req.name, req.price, req.stock, req.category, req.id],
+        "UPDATE products SET name = ?1, price = ?2, stock = ?3, category = ?4, barcode = ?5 WHERE id = ?6",
+        params![req.name, req.price, req.stock, req.category, barcode, req.id],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(map_write_error)?;
 
     Ok(())
 }

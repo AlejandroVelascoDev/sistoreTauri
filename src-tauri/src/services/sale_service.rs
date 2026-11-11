@@ -4,9 +4,39 @@ use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 use tauri::{command, AppHandle};
 
+const PAYMENT_METHODS: [&str; 3] = ["efectivo", "tarjeta", "transferencia"];
+
 #[command]
 pub fn sale_service_create(app: AppHandle, req: CreateSaleRequest) -> Result<i64, String> {
     let mut conn = open_database(&app);
+
+    let session_id: i64 = conn
+        .query_row(
+            "SELECT id FROM cash_sessions WHERE closed_at IS NULL ORDER BY id DESC LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Abre la caja antes de registrar ventas".to_string())?;
+
+    if !PAYMENT_METHODS.contains(&req.payment_method.as_str()) {
+        return Err("Método de pago no válido".to_string());
+    }
+
+    let (received, change_given) = if req.payment_method == "efectivo" {
+        let received = req.received.unwrap_or(req.total);
+        if received + 0.005 < req.total {
+            return Err(format!(
+                "El efectivo recibido ({:.2}) no alcanza para el total ({:.2})",
+                received, req.total
+            ));
+        }
+        (Some(received), Some((received - req.total).max(0.0)))
+    } else {
+        (None, None)
+    };
+
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     for item in req.items.iter() {
@@ -33,9 +63,18 @@ pub fn sale_service_create(app: AppHandle, req: CreateSaleRequest) -> Result<i64
     let occurred_at = Utc::now().to_rfc3339();
 
     tx.execute(
-        "INSERT INTO sales (occurred_at, subtotal, tax, total)
-         VALUES (?1, ?2, ?3, ?4)",
-        params![occurred_at, req.subtotal, req.tax, req.total],
+        "INSERT INTO sales (occurred_at, subtotal, tax, total, session_id, payment_method, received, change_given)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            occurred_at,
+            req.subtotal,
+            req.tax,
+            req.total,
+            session_id,
+            req.payment_method,
+            received,
+            change_given
+        ],
     )
     .map_err(|e| e.to_string())?;
 

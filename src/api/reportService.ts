@@ -10,7 +10,7 @@ export type ReportModel = {
 export interface Report {
   id: number;
   name: string;
-  category: string;
+  category: string | null;
   created_at: string;
   description: string | null;
 }

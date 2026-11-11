@@ -8,6 +8,7 @@ pub struct ProductModel {
     pub stock: i64,
     pub category: Option<String>,
     pub created_at: String,
+    pub barcode: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -16,6 +17,7 @@ pub struct CreateProductRequest {
     pub price: f64,
     pub stock: i64,
     pub category: Option<String>,
+    pub barcode: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -25,4 +27,5 @@ pub struct UpdateProductRequest {
     pub price: f64,
     pub stock: i64,
     pub category: Option<String>,
+    pub barcode: Option<String>,
 }

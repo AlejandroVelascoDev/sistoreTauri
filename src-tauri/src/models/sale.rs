@@ -13,6 +13,8 @@ pub struct CreateSaleRequest {
     pub subtotal: f64,
     pub tax: f64,
     pub total: f64,
+    pub payment_method: String,
+    pub received: Option<f64>,
 }
 
 #[derive(Serialize)]
