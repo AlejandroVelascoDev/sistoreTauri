@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import logo from "../assets/logo-cart.png";
 import { AuthService } from "../api/authService";
 import { useAuth } from "../lib/auth";
 import { btnPrimary, inputClass } from "../lib/ui";
@@ -57,7 +58,10 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg p-6">
       <div className="anim-page w-full max-w-sm">
-        <p className="mb-8 text-base font-semibold tracking-tight">SisStore</p>
+        <div className="mb-8 flex items-center gap-3">
+          <img src={logo} alt="SisStore" className="h-14 w-14 object-contain" />
+          <span className="text-lg font-semibold tracking-tight">SisStore</span>
+        </div>
 
         {setupMode === null ? null : (
           <>

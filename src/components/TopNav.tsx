@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   TrendingUp,
 } from "lucide-react";
+import logo from "../assets/logo-cart.png";
 import { CashService, type CutSummary } from "../api/cashService";
 import { useAuth } from "../lib/auth";
 import { formatMoney } from "../lib/format";
@@ -50,9 +51,7 @@ export default function TopNav() {
   return (
     <header className="flex h-14 shrink-0 items-stretch gap-6 border-b border-line bg-surface pl-5">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-7 w-7 items-center justify-center rounded bg-accent text-sm font-bold text-accent-ink">
-          S
-        </span>
+        <img src={logo} alt="" className="h-8 w-8 object-contain" />
         <span className="text-sm font-semibold tracking-tight">SisStore</span>
       </div>
 
