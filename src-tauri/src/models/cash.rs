@@ -10,6 +10,7 @@ pub struct CashSession {
     pub expected_cash: Option<f64>,
     pub difference: Option<f64>,
     pub notes: Option<String>,
+    pub kept_fund: Option<f64>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -63,4 +64,5 @@ pub struct CloseCashRequest {
     pub session_id: i64,
     pub denominations: Vec<DenominationCount>,
     pub notes: Option<String>,
+    pub kept_fund: Option<f64>,
 }

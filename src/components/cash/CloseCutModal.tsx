@@ -20,6 +20,7 @@ export default function CloseCutModal({
   const { t } = useTranslation();
   const [counts, setCounts] = useState<Record<number, string>>({});
   const [notes, setNotes] = useState("");
+  const [keptFund, setKeptFund] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,9 +28,10 @@ export default function CloseCutModal({
     if (isOpen) {
       setCounts({});
       setNotes("");
+      setKeptFund(String(summary.session.opening_fund));
       setError(null);
     }
-  }, [isOpen]);
+  }, [isOpen, summary.session.opening_fund]);
 
   const counted = DENOMINATIONS.reduce(
     (sum, value) => sum + value * (Number(counts[value]) || 0),
@@ -37,6 +39,8 @@ export default function CloseCutModal({
   );
   const difference = counted - summary.expected_cash;
   const hasDifference = Math.abs(difference) >= 0.005;
+  const kept = Number(keptFund) || 0;
+  const withdrawn = Math.max(0, counted - kept);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -50,6 +54,7 @@ export default function CloseCutModal({
           count: Number(counts[value]) || 0,
         })),
         notes,
+        kept_fund: kept,
       });
       onClosed(result);
     } catch (err) {
@@ -142,6 +147,27 @@ export default function CloseCutModal({
             </dd>
           </div>
         </dl>
+
+        <div className="grid grid-cols-2 items-end gap-4">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium">
+              {t("Fondo que queda en caja")}
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              value={keptFund}
+              onChange={(e) => setKeptFund(e.target.value)}
+              className={`${inputClass} tabular-nums`}
+            />
+          </label>
+          <div className="pb-2 text-sm">
+            <p className="text-muted">{t("Se retira de caja")}</p>
+            <p className="font-semibold tabular-nums">{formatMoney(withdrawn)}</p>
+          </div>
+        </div>
 
         {hasDifference && (
           <label className="block">

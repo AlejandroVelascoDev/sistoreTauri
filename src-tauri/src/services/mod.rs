@@ -3,3 +3,4 @@ pub mod sale_service;
 pub mod report_service;
 pub mod auth_service;
 pub mod cash_service;
+pub mod stats_service;

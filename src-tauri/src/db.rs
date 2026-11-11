@@ -45,6 +45,9 @@ fn migrate(conn: &Connection) -> Result<()> {
     add_column_if_missing(conn, "sales", "received", "REAL")?;
     add_column_if_missing(conn, "sales", "change_given", "REAL")?;
     add_column_if_missing(conn, "products", "barcode", "TEXT")?;
+    add_column_if_missing(conn, "products", "cost", "REAL NOT NULL DEFAULT 0")?;
+    add_column_if_missing(conn, "sale_items", "unit_cost", "REAL NOT NULL DEFAULT 0")?;
+    add_column_if_missing(conn, "cash_sessions", "kept_fund", "REAL")?;
     conn.execute_batch(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_barcode
          ON products(barcode) WHERE barcode IS NOT NULL;",
