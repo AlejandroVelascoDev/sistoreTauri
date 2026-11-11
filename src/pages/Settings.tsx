@@ -78,7 +78,7 @@ export default function Settings() {
             <Segmented
               value={i18n.language}
               options={languages}
-              onChange={(value) => i18n.changeLanguage(value)}
+              onChange={(value) => { localStorage.setItem("language", value); void i18n.changeLanguage(value); }}
             />
           </Row>
         </Section>
@@ -88,13 +88,13 @@ export default function Settings() {
             label={t("Notificaciones push")}
             description={t("Recibe alertas de ventas y actualizaciones")}
           >
-            <Switch checked={notifications} onChange={setNotifications} />
+            <Switch label={t("Notificaciones push")} checked={notifications} onChange={setNotifications} />
           </Row>
           <Row
             label={t("Efectos de sonido")}
             description={t("Reproducir sonidos en acciones importantes")}
           >
-            <Switch checked={soundEffects} onChange={setSoundEffects} />
+            <Switch label={t("Efectos de sonido")} checked={soundEffects} onChange={setSoundEffects} />
           </Row>
         </Section>
 
@@ -156,9 +156,11 @@ function Row({
 }
 
 function Switch({
+  label,
   checked,
   onChange,
 }: {
+  label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
@@ -166,6 +168,7 @@ function Switch({
     <button
       type="button"
       role="switch"
+      aria-label={label}
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${

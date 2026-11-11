@@ -136,15 +136,18 @@ fn build_summary(
 }
 
 fn summary_for(conn: &Connection, session_id: i64) -> Result<CutSummary, String> {
-    let session = read_session(conn, session_id)?
-        .ok_or_else(|| "La sesión de caja no existe".to_string())?;
+    let session =
+        read_session(conn, session_id)?.ok_or_else(|| "La sesión de caja no existe".to_string())?;
 
     let denominations = load_denominations(conn, session_id)?;
 
     build_summary(conn, session, denominations)
 }
 
-fn load_denominations(conn: &Connection, session_id: i64) -> Result<Vec<DenominationCount>, String> {
+fn load_denominations(
+    conn: &Connection,
+    session_id: i64,
+) -> Result<Vec<DenominationCount>, String> {
     let raw: Option<String> = conn
         .query_row(
             "SELECT denominations FROM cash_sessions WHERE id = ?1",
@@ -161,6 +164,7 @@ fn load_denominations(conn: &Connection, session_id: i64) -> Result<Vec<Denomina
 
 #[command]
 pub fn cash_get_current(app: AppHandle) -> Result<Option<CutSummary>, String> {
+    crate::services::auth_service::require_session(&app)?;
     let conn = open_database(&app);
 
     match open_session_id(&conn)? {
@@ -171,6 +175,7 @@ pub fn cash_get_current(app: AppHandle) -> Result<Option<CutSummary>, String> {
 
 #[command]
 pub fn cash_open(app: AppHandle, req: OpenCashRequest) -> Result<i64, String> {
+    crate::services::auth_service::require_session(&app)?;
     let conn = open_database(&app);
 
     if open_session_id(&conn)?.is_some() {
@@ -191,6 +196,7 @@ pub fn cash_open(app: AppHandle, req: OpenCashRequest) -> Result<i64, String> {
 
 #[command]
 pub fn cash_movement_create(app: AppHandle, req: CreateMovementRequest) -> Result<i64, String> {
+    crate::services::auth_service::require_session(&app)?;
     let conn = open_database(&app);
 
     let session_id = open_session_id(&conn)?
@@ -241,6 +247,7 @@ pub fn cash_movement_create(app: AppHandle, req: CreateMovementRequest) -> Resul
 
 #[command]
 pub fn cash_close(app: AppHandle, req: CloseCashRequest) -> Result<CutSummary, String> {
+    crate::services::auth_service::require_session(&app)?;
     let conn = open_database(&app);
 
     let open_id = open_session_id(&conn)?.ok_or_else(|| "No hay una caja abierta".to_string())?;
@@ -250,11 +257,7 @@ pub fn cash_close(app: AppHandle, req: CloseCashRequest) -> Result<CutSummary, S
 
     let summary = summary_for(&conn, open_id)?;
 
-    let counted: f64 = req
-        .denominations
-        .iter()
-        .map(|d| d.value * d.count as f64)
-        .sum();
+    let counted = count_cash(&req.denominations)?;
     let difference = counted - summary.expected_cash;
 
     let notes = req
@@ -267,14 +270,10 @@ pub fn cash_close(app: AppHandle, req: CloseCashRequest) -> Result<CutSummary, S
     }
 
     let kept_fund = req.kept_fund.unwrap_or(summary.session.opening_fund);
-    if kept_fund < 0.0 {
-        return Err("El fondo que queda en caja no puede ser negativo".to_string());
-    }
-    if kept_fund > counted + 0.005 {
-        return Err("El fondo que queda en caja no puede ser mayor al efectivo contado".to_string());
-    }
+    validate_kept_fund(kept_fund, counted)?;
 
-    let denominations_json = serde_json::to_string(&req.denominations).map_err(|e| e.to_string())?;
+    let denominations_json =
+        serde_json::to_string(&req.denominations).map_err(|e| e.to_string())?;
 
     conn.execute(
         "UPDATE cash_sessions
@@ -299,6 +298,7 @@ pub fn cash_close(app: AppHandle, req: CloseCashRequest) -> Result<CutSummary, S
 
 #[command]
 pub fn cash_suggested_fund(app: AppHandle) -> Result<Option<f64>, String> {
+    crate::services::auth_service::require_session(&app)?;
     let conn = open_database(&app);
 
     conn.query_row(
@@ -313,6 +313,7 @@ pub fn cash_suggested_fund(app: AppHandle) -> Result<Option<f64>, String> {
 
 #[command]
 pub fn cash_history(app: AppHandle) -> Result<Vec<CutSummary>, String> {
+    crate::services::auth_service::require_session(&app)?;
     let conn = open_database(&app);
 
     let ids = {
@@ -330,4 +331,60 @@ pub fn cash_history(app: AppHandle) -> Result<Vec<CutSummary>, String> {
     };
 
     ids.into_iter().map(|id| summary_for(&conn, id)).collect()
+}
+
+fn count_cash(denominations: &[DenominationCount]) -> Result<f64, String> {
+    if denominations
+        .iter()
+        .any(|d| !d.value.is_finite() || d.value <= 0.0 || d.count < 0)
+    {
+        return Err("Las denominaciones no son válidas".into());
+    }
+    let counted: f64 = denominations.iter().map(|d| d.value * d.count as f64).sum();
+    if !counted.is_finite() {
+        return Err("El efectivo contado no es válido".into());
+    }
+    Ok(counted)
+}
+
+fn validate_kept_fund(kept_fund: f64, counted: f64) -> Result<(), String> {
+    if !kept_fund.is_finite() || kept_fund < 0.0 {
+        return Err("El fondo que queda en caja no puede ser negativo".to_string());
+    }
+    if kept_fund > counted + 0.005 {
+        return Err(
+            "El fondo que queda en caja no puede ser mayor al efectivo contado".to_string(),
+        );
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn rejects_invalid_counts_and_funds() {
+        for (value, count) in [
+            (0.0, 1),
+            (-1.0, 1),
+            (1.0, -1),
+            (f64::NAN, 1),
+            (f64::INFINITY, 1),
+        ] {
+            assert!(count_cash(&[DenominationCount { value, count }]).is_err());
+        }
+        assert_eq!(
+            count_cash(&[DenominationCount {
+                value: 20.0,
+                count: 3
+            }])
+            .unwrap(),
+            60.0
+        );
+        for fund in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0, 61.0] {
+            assert!(validate_kept_fund(fund, 60.0).is_err());
+        }
+        assert!(validate_kept_fund(60.0, 60.0).is_ok());
+    }
 }

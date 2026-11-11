@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
-use tauri::{AppHandle, Manager};
-use tauri::path::BaseDirectory;
 use std::path::PathBuf;
+use tauri::path::BaseDirectory;
+use tauri::{AppHandle, Manager};
 
 pub fn open_database(app: &AppHandle) -> Connection {
     let dir = app
@@ -21,7 +21,12 @@ pub fn open_database(app: &AppHandle) -> Connection {
     conn
 }
 
-fn add_column_if_missing(conn: &Connection, table: &str, column: &str, definition: &str) -> Result<()> {
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<bool> {
     let exists = conn
         .prepare(&format!("PRAGMA table_info({})", table))?
         .query_map([], |row| row.get::<_, String>(1))?
@@ -36,17 +41,29 @@ fn add_column_if_missing(conn: &Connection, table: &str, column: &str, definitio
         ))?;
     }
 
-    Ok(())
+    Ok(!exists)
 }
 
 fn migrate(conn: &Connection) -> Result<()> {
     add_column_if_missing(conn, "sales", "session_id", "INTEGER")?;
-    add_column_if_missing(conn, "sales", "payment_method", "TEXT NOT NULL DEFAULT 'efectivo'")?;
+    add_column_if_missing(
+        conn,
+        "sales",
+        "payment_method",
+        "TEXT NOT NULL DEFAULT 'efectivo'",
+    )?;
     add_column_if_missing(conn, "sales", "received", "REAL")?;
     add_column_if_missing(conn, "sales", "change_given", "REAL")?;
     add_column_if_missing(conn, "products", "barcode", "TEXT")?;
     add_column_if_missing(conn, "products", "cost", "REAL NOT NULL DEFAULT 0")?;
-    add_column_if_missing(conn, "sale_items", "unit_cost", "REAL NOT NULL DEFAULT 0")?;
+    let tx = conn.unchecked_transaction()?;
+    if add_column_if_missing(&tx, "sale_items", "unit_cost", "REAL NOT NULL DEFAULT 0")? {
+        tx.execute_batch(
+            "UPDATE sale_items SET unit_cost = COALESCE(
+            (SELECT cost FROM products WHERE products.id = sale_items.product_id), 0)",
+        )?;
+    }
+    tx.commit()?;
     add_column_if_missing(conn, "cash_sessions", "kept_fund", "REAL")?;
     conn.execute_batch(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_barcode
@@ -123,8 +140,31 @@ fn init_tables(conn: &Connection) -> Result<()> {
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
-        "
+        ",
     )?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn cost_backfill_runs_only_once() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_tables(&conn).unwrap();
+        add_column_if_missing(&conn, "products", "cost", "REAL NOT NULL DEFAULT 0").unwrap();
+        conn.execute_batch("INSERT INTO products(id,name,price,stock,created_at,cost) VALUES(1,'Test',10,2,'2026-01-01',4);
+            INSERT INTO sales(id,occurred_at,subtotal,tax,total) VALUES(1,'2026-01-01',10,1.9,11.9);
+            INSERT INTO sale_items(sale_id,product_id,quantity,unit_price) VALUES(1,1,1,10);").unwrap();
+        migrate(&conn).unwrap();
+        conn.execute("UPDATE products SET cost = 9", []).unwrap();
+        migrate(&conn).unwrap();
+        assert_eq!(
+            conn.query_row("SELECT unit_cost FROM sale_items", [], |r| r
+                .get::<_, f64>(0))
+                .unwrap(),
+            4.0
+        );
+    }
 }

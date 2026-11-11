@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProductModel {
@@ -32,5 +32,5 @@ pub struct UpdateProductRequest {
     pub category: Option<String>,
     pub barcode: Option<String>,
     #[serde(default)]
-    pub cost: f64,
+    pub cost: Option<f64>,
 }

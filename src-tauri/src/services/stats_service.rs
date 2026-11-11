@@ -26,9 +26,11 @@ fn parse_day(value: &str) -> Result<NaiveDate, String> {
 
 #[command]
 pub fn stats_daily(app: AppHandle, from: String, to: String) -> Result<Vec<DayStat>, String> {
+    crate::services::auth_service::require_session(&app)?;
     let conn = open_database(&app);
     let start = parse_day(&from)?;
     let end = parse_day(&to)?;
+    validate_range(start, end)?;
 
     let mut by_day: HashMap<String, (f64, i64)> = HashMap::new();
     {
@@ -90,6 +92,9 @@ pub fn stats_daily(app: AppHandle, from: String, to: String) -> Result<Vec<DaySt
             profit,
             count,
         });
+        if current == end {
+            break;
+        }
         current += Duration::days(1);
     }
 
@@ -103,6 +108,7 @@ pub fn stats_top_products(
     to: String,
     limit: i64,
 ) -> Result<Vec<ProductStat>, String> {
+    crate::services::auth_service::require_session(&app)?;
     let conn = open_database(&app);
 
     let mut stmt = conn
@@ -133,4 +139,25 @@ pub fn stats_top_products(
         list.push(row.map_err(|e| e.to_string())?);
     }
     Ok(list)
+}
+
+fn validate_range(start: NaiveDate, end: NaiveDate) -> Result<(), String> {
+    // Up to ten years of daily results, including leap days.
+    if end < start || (end - start).num_days() >= 3660 {
+        return Err("El rango debe contener entre 1 y 3660 días".into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn range_bounds_are_inclusive() {
+        let start = parse_day("2026-01-01").unwrap();
+        assert!(validate_range(start, start).is_ok());
+        assert!(validate_range(start, start + Duration::days(3659)).is_ok());
+        assert!(validate_range(start, start + Duration::days(3660)).is_err());
+        assert!(validate_range(start, start - Duration::days(1)).is_err());
+    }
 }

@@ -46,7 +46,7 @@ export default function Login() {
       const session = setupMode
         ? await AuthService.register({ username, display_name: displayName, password })
         : await AuthService.login({ username, password });
-      signIn(session);
+      await signIn(session);
       navigate("/", { replace: true });
     } catch (err) {
       setError(String(err));

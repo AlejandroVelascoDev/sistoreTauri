@@ -33,6 +33,8 @@ function percentChange(current: number, previous: number) {
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [products, setProducts] = useState<ProductModel[]>([]);
   const [sales, setSales] = useState<SaleSummary[]>([]);
   const [days, setDays] = useState<DayStat[]>([]);
@@ -59,6 +61,9 @@ export default function Dashboard() {
         setDays(dailyStats);
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
+        setFailed(true);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -92,7 +97,8 @@ export default function Dashboard() {
   const prevWeekSales = sumOf(prevWeekStats, "sales");
   const thisWeekProfit = sumOf(thisWeekStats, "profit");
   const prevWeekProfit = sumOf(prevWeekStats, "profit");
-  const weekChange = percentChange(thisWeekSales, prevWeekSales);
+  const elapsedDays = (today.getDay() + 6) % 7 + 1;
+  const weekChange = percentChange(thisWeekSales, sumOf(prevWeekStats.slice(0, elapsedDays), "sales"));
 
   const todayStats = byDay.get(dayKey(today));
   const todaySales = todayStats?.sales ?? 0;
@@ -110,6 +116,9 @@ export default function Dashboard() {
     .slice(0, 8);
 
   const maxQuantity = Math.max(1, ...topProducts.map((p) => p.quantity));
+
+  if (loading) return <p role="status">{t("Cargando...")}</p>;
+  if (failed) return <p role="alert">{t("No se pudieron cargar los datos")}</p>;
 
   return (
     <>
@@ -224,8 +233,8 @@ export default function Dashboard() {
             <p className="text-sm text-muted">{t("Sin ventas en este periodo")}</p>
           ) : (
             <ul className="space-y-3">
-              {topProducts.map((product) => (
-                <li key={product.name} className="text-sm">
+              {topProducts.map((product, index) => (
+                <li key={`${product.name}-${index}`} className="text-sm">
                   <div className="mb-1 flex justify-between gap-3">
                     <span className="truncate font-medium">{product.name}</span>
                     <span className="tabular-nums text-muted">

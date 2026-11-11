@@ -58,7 +58,7 @@ export default function Reports() {
     );
   }, [reports, searchTerm]);
 
-  const categoryCount = new Set(reports.map((r) => r.category)).size;
+  const categoryCount = new Set(reports.map((r) => r.category).filter((category) => category?.trim())).size;
   const now = new Date();
   const thisMonth = reports.filter((r) => {
     const date = parseDate(r.created_at);

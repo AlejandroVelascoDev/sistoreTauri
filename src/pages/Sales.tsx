@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -39,6 +39,8 @@ type CartItem = {
 
 export default function Sales() {
   const { t } = useTranslation();
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [products, setProducts] = useState<ProductModel[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -125,7 +127,11 @@ export default function Sales() {
       return;
     }
 
-    if (product.stock === 0) {
+    if (!cashSession) {
+      setScanMessage({ text: t("La caja está cerrada. Ábrela para registrar ventas."), tone: "error" });
+      return;
+    }
+    if ((cart.find((item) => item.id === product.id)?.quantity ?? 0) >= product.stock) {
       setScanMessage({
         text: t("{{name}} no tiene stock", { name: product.name }),
         tone: "error",
@@ -182,7 +188,7 @@ export default function Sales() {
   const total = subtotal + tax;
   const itemCount = cart.reduce((s, item) => s + item.quantity, 0);
 
-  const receivedAmount = Number(received) || 0;
+  const receivedAmount = received === "" ? total : Number(received) || 0;
   const change =
     payment === "efectivo" ? Math.max(0, receivedAmount - total) : 0;
   const cashShort =
@@ -191,7 +197,9 @@ export default function Sales() {
     cart.length > 0 && cashSession !== null && !cashShort;
 
   const processSale = async () => {
-    if (!canComplete) return;
+    if (!canComplete || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
 
     try {
       const saleTotal = total;
@@ -209,15 +217,18 @@ export default function Sales() {
         received: payment === "efectivo" ? receivedAmount : null,
       });
 
-      setProducts(await ProductService.getAll());
       setCart([]);
       setReceived("");
       setPayment("efectivo");
       setCompleted({ total: saleTotal });
       window.dispatchEvent(new Event("cash-changed"));
+      setProducts(await ProductService.getAll());
     } catch (err) {
       console.error("Sale error", err);
       alert(String(err));
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -473,7 +484,7 @@ export default function Sales() {
 
           <button
             onClick={processSale}
-            disabled={!canComplete}
+            disabled={!canComplete || submitting}
             className={`${btnPrimary} h-14 w-full text-base`}
           >
             <Check className="h-5 w-5" />

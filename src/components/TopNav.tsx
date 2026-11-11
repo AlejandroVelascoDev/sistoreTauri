@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,15 +23,17 @@ export default function TopNav() {
   const [cash, setCash] = useState<CutSummary | null>(null);
   const [now, setNow] = useState(() => new Date());
 
+  const requestId = useRef(0);
   useEffect(() => {
     const refresh = () => {
+      const id = ++requestId.current;
       CashService.getCurrent()
-        .then(setCash)
-        .catch(() => setCash(null));
+        .then((value) => { if (id === requestId.current) setCash(value); })
+        .catch(() => { if (id === requestId.current) setCash(null); });
     };
     refresh();
     window.addEventListener("cash-changed", refresh);
-    return () => window.removeEventListener("cash-changed", refresh);
+    return () => { ++requestId.current; window.removeEventListener("cash-changed", refresh); };
   }, [location.pathname]);
 
   useEffect(() => {
@@ -49,13 +51,13 @@ export default function TopNav() {
   ];
 
   return (
-    <header className="flex h-14 shrink-0 items-stretch gap-6 border-b border-line bg-surface pl-5">
+    <header className="flex min-h-14 shrink-0 flex-wrap items-stretch gap-3 py-2 xl:h-14 xl:flex-nowrap xl:gap-6 xl:py-0 border-b border-line bg-surface pl-5">
       <div className="flex items-center gap-2.5">
         <img src={logo} alt="" className="h-8 w-8 object-contain" />
         <span className="text-sm font-semibold tracking-tight">SisStore</span>
       </div>
 
-      <nav className="flex items-stretch gap-1">
+      <nav className="flex max-w-full flex-wrap items-stretch gap-1">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -78,7 +80,7 @@ export default function TopNav() {
         })}
       </nav>
 
-      <div className="ml-auto flex items-center gap-5 pr-4 text-sm">
+      <div className="ml-auto flex flex-wrap items-center gap-3 pr-4 text-sm">
         <Link
           to="/corte"
           className="flex items-center gap-2 rounded-md px-2 text-muted transition-colors hover:text-ink"

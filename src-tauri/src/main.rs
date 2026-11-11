@@ -1,16 +1,20 @@
 mod db;
-mod services;
 mod models;
+mod services;
 use db::open_database;
-use services::{auth_service, cash_service, product_service, sale_service, report_service, stats_service};
-
+use services::{
+    auth_service, cash_service, product_service, report_service, sale_service, stats_service,
+};
 
 fn main() {
     tauri::Builder::default()
+        .manage(auth_service::NativeSession::default())
         .invoke_handler(tauri::generate_handler![
             auth_service::auth_has_users,
             auth_service::auth_register,
             auth_service::auth_login,
+            auth_service::auth_session,
+            auth_service::auth_logout,
             cash_service::cash_get_current,
             cash_service::cash_open,
             cash_service::cash_movement_create,

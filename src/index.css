@@ -13,6 +13,7 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
   --color-warn: var(--warn);
   --color-success: var(--success);
 }
@@ -24,9 +25,10 @@
   --line: #d3d6dc;
   --ink: #111316;
   --muted: #5d636d;
-  --accent: #03a56e;
+  --accent: #008f60;
   --accent-ink: #111316;
   --danger: #b42318;
+  --danger-ink: #ffffff;
   --warn: #9a4a00;
   --success: #17794f;
   color-scheme: light;
@@ -42,6 +44,7 @@
   --accent: #1fd08b;
   --accent-ink: #111316;
   --danger: #ff6b5e;
+  --danger-ink: #111316;
   --warn: #ffb547;
   --success: #3ddc91;
   color-scheme: dark;

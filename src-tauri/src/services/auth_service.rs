@@ -2,10 +2,42 @@ use crate::db::open_database;
 use crate::models::auth::{AuthUser, LoginRequest, RegisterRequest};
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use argon2::Argon2;
-use rand_core::OsRng;
 use chrono::Utc;
+use rand_core::OsRng;
 use rusqlite::{params, OptionalExtension};
 use tauri::{command, AppHandle};
+
+use std::sync::Mutex;
+use tauri::Manager;
+
+#[derive(Default)]
+pub struct NativeSession(Mutex<Option<AuthUser>>);
+
+impl NativeSession {
+    fn current(&self) -> Result<Option<AuthUser>, String> {
+        Ok(self.0.lock().map_err(|e| e.to_string())?.clone())
+    }
+    fn set(&self, user: Option<AuthUser>) -> Result<(), String> {
+        *self.0.lock().map_err(|e| e.to_string())? = user;
+        Ok(())
+    }
+}
+
+pub fn require_session(app: &AppHandle) -> Result<AuthUser, String> {
+    app.state::<NativeSession>()
+        .current()?
+        .ok_or_else(|| "Inicia sesión para continuar".to_string())
+}
+
+#[command]
+pub fn auth_session(app: AppHandle) -> Result<Option<AuthUser>, String> {
+    app.state::<NativeSession>().current()
+}
+
+#[command]
+pub fn auth_logout(app: AppHandle) -> Result<(), String> {
+    app.state::<NativeSession>().set(None)
+}
 
 const MIN_PASSWORD_LENGTH: usize = 6;
 
@@ -60,15 +92,22 @@ pub fn auth_register(app: AppHandle, req: RegisterRequest) -> Result<AuthUser, S
     conn.execute(
         "INSERT INTO users (username, display_name, password_hash, created_at)
          VALUES (?1, ?2, ?3, ?4)",
-        params![username, display_name, password_hash, Utc::now().to_rfc3339()],
+        params![
+            username,
+            display_name,
+            password_hash,
+            Utc::now().to_rfc3339()
+        ],
     )
     .map_err(|e| e.to_string())?;
 
-    Ok(AuthUser {
+    let user = AuthUser {
         id: conn.last_insert_rowid(),
         username,
         display_name,
-    })
+    };
+    app.state::<NativeSession>().set(Some(user.clone()))?;
+    Ok(user)
 }
 
 #[command]
@@ -100,9 +139,31 @@ pub fn auth_login(app: AppHandle, req: LoginRequest) -> Result<AuthUser, String>
         .verify_password(req.password.as_bytes(), &parsed_hash)
         .map_err(|_| invalid_credentials())?;
 
-    Ok(AuthUser {
+    let user = AuthUser {
         id,
         username,
         display_name,
-    })
+    };
+    app.state::<NativeSession>().set(Some(user.clone()))?;
+    Ok(user)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn session_requires_native_login_and_can_be_revoked() {
+        let session = NativeSession::default();
+        assert!(session.current().unwrap().is_none());
+        session
+            .set(Some(AuthUser {
+                id: 1,
+                username: "test".into(),
+                display_name: "Test".into(),
+            }))
+            .unwrap();
+        assert_eq!(session.current().unwrap().unwrap().id, 1);
+        session.set(None).unwrap();
+        assert!(session.current().unwrap().is_none());
+    }
 }

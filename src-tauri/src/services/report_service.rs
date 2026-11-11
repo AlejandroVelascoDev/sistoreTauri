@@ -6,12 +6,11 @@ use tauri::{command, AppHandle};
 
 #[command]
 pub fn report_service_get_all(app: AppHandle) -> Result<Vec<ReportModel>, String> {
+    crate::services::auth_service::require_session(&app)?;
     let mut conn = open_database(&app);
 
     let mut stmt = conn
-        .prepare(
-            "SELECT id, name, category, created_at, description FROM report ORDER BY id DESC",
-        )
+        .prepare("SELECT id, name, category, created_at, description FROM report ORDER BY id DESC")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -36,6 +35,7 @@ pub fn report_service_get_all(app: AppHandle) -> Result<Vec<ReportModel>, String
 
 #[command]
 pub fn report_service_get_one(app: AppHandle, id: i64) -> Result<Option<ReportModel>, String> {
+    crate::services::auth_service::require_session(&app)?;
     let mut conn = open_database(&app);
 
     let mut stmt = conn
@@ -62,29 +62,25 @@ pub fn report_service_get_one(app: AppHandle, id: i64) -> Result<Option<ReportMo
 }
 
 #[command]
-pub fn report_service_create(
-    app: AppHandle,
-    req: CreateReportRequest,
-) -> Result<i64, String> {
+pub fn report_service_create(app: AppHandle, req: CreateReportRequest) -> Result<i64, String> {
+    crate::services::auth_service::require_session(&app)?;
     let mut conn = open_database(&app);
 
     let now = Utc::now().to_rfc3339();
 
     conn.execute(
-    "INSERT INTO report (name, category, created_at, description)
+        "INSERT INTO report (name, category, created_at, description)
      VALUES (?1, ?2, ?3, ?4)",
-    params![req.name, req.category, now, req.description],
+        params![req.name, req.category, now, req.description],
     )
-    .map_err(|e| e.to_string())?;  
+    .map_err(|e| e.to_string())?;
 
     Ok(conn.last_insert_rowid())
 }
 
 #[command]
-pub fn report_service_update(
-    app: AppHandle,
-    req: UpdateReportRequest,
-) -> Result<(), String> {
+pub fn report_service_update(app: AppHandle, req: UpdateReportRequest) -> Result<(), String> {
+    crate::services::auth_service::require_session(&app)?;
     let mut conn = open_database(&app);
 
     conn.execute(
@@ -98,6 +94,7 @@ pub fn report_service_update(
 
 #[command]
 pub fn report_service_delete(app: AppHandle, id: i64) -> Result<(), String> {
+    crate::services::auth_service::require_session(&app)?;
     let mut conn = open_database(&app);
 
     conn.execute("DELETE FROM report WHERE id = ?1", params![id])

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
@@ -21,14 +21,34 @@ export default function Modal({
 }: ModalProps) {
   const { t } = useTranslation();
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const root = dialogRef.current!;
+    root.focus();
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeRef.current();
+      if (e.key !== "Tab") return;
+      const elements = Array.from(root.querySelectorAll<HTMLElement>(
+        'button, input, select, textarea, a[href], [tabindex]'
+      )).filter((el) => el.tabIndex >= 0 && !el.matches(":disabled") && el.getClientRects().length > 0);
+      const index = elements.indexOf(document.activeElement as HTMLElement);
+      e.preventDefault();
+      if (!elements.length) root.focus();
+      else elements[index < 0 ? (e.shiftKey ? elements.length - 1 : 0) : (index + (e.shiftKey ? -1 : 1) + elements.length) % elements.length].focus();
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = overflow;
+      previous?.focus();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -40,6 +60,8 @@ export default function Modal({
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
