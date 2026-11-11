@@ -2,7 +2,7 @@ mod db;
 mod services;
 mod models;
 use db::open_database;
-use services::{auth_service, cash_service, product_service, sale_service, report_service};
+use services::{auth_service, cash_service, product_service, sale_service, report_service, stats_service};
 
 
 fn main() {
@@ -16,6 +16,9 @@ fn main() {
             cash_service::cash_movement_create,
             cash_service::cash_close,
             cash_service::cash_history,
+            cash_service::cash_suggested_fund,
+            stats_service::stats_daily,
+            stats_service::stats_top_products,
             product_service::product_service_get_all,
             product_service::product_service_get_one,
             product_service::product_service_create,

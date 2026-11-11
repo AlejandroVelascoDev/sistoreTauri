@@ -81,10 +81,18 @@ pub fn sale_service_create(app: AppHandle, req: CreateSaleRequest) -> Result<i64
     let sale_id = tx.last_insert_rowid();
 
     for item in req.items {
+        let unit_cost: f64 = tx
+            .query_row(
+                "SELECT cost FROM products WHERE id = ?1",
+                params![item.product_id],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+
         tx.execute(
-            "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![sale_id, item.product_id, item.quantity, item.unit_price],
+            "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, unit_cost)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![sale_id, item.product_id, item.quantity, item.unit_price, unit_cost],
         )
         .map_err(|e| e.to_string())?;
 

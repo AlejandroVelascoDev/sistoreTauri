@@ -8,6 +8,7 @@ export type ProductModel = {
   category?: string | null;
   created_at: string;
   barcode?: string | null;
+  cost: number;
 };
 
 export type CreateProductRequest = {
@@ -16,6 +17,7 @@ export type CreateProductRequest = {
   stock: number;
   category?: string | null;
   barcode?: string | null;
+  cost?: number;
 };
 
 export type UpdateProductRequest = {
@@ -25,6 +27,7 @@ export type UpdateProductRequest = {
   stock: number;
   category?: string | null;
   barcode?: string | null;
+  cost?: number;
 };
 
 export const ProductService = {

@@ -1,30 +1,32 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Check, Minus, Plus, Search, ShoppingCart, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import {
+  Banknote,
+  Check,
+  CreditCard,
+  Landmark,
+  Minus,
+  Plus,
+  ScanLine,
+  Trash2,
+  X,
+} from "lucide-react";
 import { ProductService, type ProductModel } from "../api/productService";
 import { SaleService, type PaymentMethod } from "../api/saleService";
 import { CashService, type CutSummary } from "../api/cashService";
-import PageHeader from "../components/PageHeader";
-import Segmented from "../components/Segmented";
+import Keypad from "../components/pos/Keypad";
 import { formatMoney } from "../lib/format";
-import {
-  btnGhost,
-  btnPrimary,
-  btnSecondary,
-  inputClass,
-  tableCell,
-  tableHead,
-} from "../lib/ui";
+import { btnGhost, btnPrimary, inputClass } from "../lib/ui";
 
 const TAX_RATE = 0.19;
 const LOW_STOCK = 10;
 
-const paymentOptions: { value: PaymentMethod; label: string }[] = [
-  { value: "efectivo", label: "Efectivo" },
-  { value: "tarjeta", label: "Tarjeta" },
-  { value: "transferencia", label: "Transferencia" },
+const paymentOptions: { value: PaymentMethod; label: string; icon: typeof Banknote }[] = [
+  { value: "efectivo", label: "Efectivo", icon: Banknote },
+  { value: "tarjeta", label: "Tarjeta", icon: CreditCard },
+  { value: "transferencia", label: "Transferencia", icon: Landmark },
 ];
 
 type CartItem = {
@@ -39,6 +41,7 @@ export default function Sales() {
   const { t } = useTranslation();
   const [products, setProducts] = useState<ProductModel[]>([]);
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [completed, setCompleted] = useState<{ total: number } | null>(null);
   const [cashSession, setCashSession] = useState<CutSummary | null>(null);
@@ -66,14 +69,43 @@ export default function Sales() {
     return () => clearTimeout(id);
   }, [completed]);
 
-  const filteredProducts = useMemo(() => {
+  const categories = useMemo(
+    () => [...new Set(products.map((p) => p.category || "General"))],
+    [products]
+  );
+
+  const visibleProducts = useMemo(() => {
     const term = search.toLowerCase();
-    return products.filter((p) =>
-      `${p.name} ${p.category || ""} ${p.barcode || ""}`
-        .toLowerCase()
-        .includes(term)
+    return products.filter(
+      (p) =>
+        (category === null || (p.category || "General") === category) &&
+        `${p.name} ${p.category || ""} ${p.barcode || ""}`
+          .toLowerCase()
+          .includes(term)
     );
-  }, [products, search]);
+  }, [products, search, category]);
+
+  const addToCart = (product: ProductModel) => {
+    setCart((current) => {
+      const exists = current.find((c) => c.id === product.id);
+      if (exists) {
+        if (exists.quantity >= product.stock) return current;
+        return current.map((c) =>
+          c.id === product.id ? { ...c, quantity: c.quantity + 1 } : c
+        );
+      }
+      return [
+        ...current,
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          stock: product.stock,
+        },
+      ];
+    });
+  };
 
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
@@ -109,28 +141,6 @@ export default function Sales() {
     });
   };
 
-  const addToCart = (product: ProductModel) => {
-    setCart((current) => {
-      const exists = current.find((c) => c.id === product.id);
-      if (exists) {
-        if (exists.quantity >= product.stock) return current;
-        return current.map((c) =>
-          c.id === product.id ? { ...c, quantity: c.quantity + 1 } : c
-        );
-      }
-      return [
-        ...current,
-        {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: 1,
-          stock: product.stock,
-        },
-      ];
-    });
-  };
-
   const increaseQuantity = (id: number) => {
     setCart((current) =>
       current.map((c) =>
@@ -155,7 +165,17 @@ export default function Sales() {
     setCart((current) => current.filter((c) => c.id !== id));
   };
 
-  const cancelSale = () => setCart([]);
+  const cancelSale = () => {
+    setCart([]);
+    setReceived("");
+  };
+
+  const pressKey = (key: string) => {
+    setReceived((current) => {
+      if (key === "⌫") return current.slice(0, -1);
+      return (current + key).replace(/^0+(?=\d)/, "").slice(0, 9);
+    });
+  };
 
   const subtotal = cart.reduce((s, item) => s + item.price * item.quantity, 0);
   const tax = subtotal * TAX_RATE;
@@ -194,6 +214,7 @@ export default function Sales() {
       setReceived("");
       setPayment("efectivo");
       setCompleted({ total: saleTotal });
+      window.dispatchEvent(new Event("cash-changed"));
     } catch (err) {
       console.error("Sale error", err);
       alert(String(err));
@@ -201,27 +222,22 @@ export default function Sales() {
   };
 
   return (
-    <>
-      <PageHeader
-        title={t("Punto de venta")}
-        description={t("Selecciona productos para agregar a la venta")}
-      />
+    <div className="grid h-full grid-cols-[1fr_380px]">
+      <section className="flex min-h-0 flex-col gap-4 p-5">
+        {cashSession === null && (
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-warn/40 bg-surface px-4 py-3">
+            <p className="text-sm text-muted">
+              {t("La caja está cerrada. Ábrela para registrar ventas.")}
+            </p>
+            <Link to="/corte" className={btnPrimary}>
+              {t("Abrir caja")}
+            </Link>
+          </div>
+        )}
 
-      {cashSession === null && (
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-5 py-4">
-          <p className="text-sm text-muted">
-            {t("La caja está cerrada. Ábrela para registrar ventas.")}
-          </p>
-          <Link to="/corte" className={btnPrimary}>
-            {t("Abrir caja")}
-          </Link>
-        </div>
-      )}
-
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
-        <section>
-          <div className="relative mb-4">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" />
+        <div>
+          <div className="relative">
+            <ScanLine className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-muted" />
             <input
               type="text"
               autoFocus
@@ -232,48 +248,67 @@ export default function Sales() {
                 setScanMessage(null);
               }}
               onKeyDown={handleSearchKeyDown}
-              className={`${inputClass} pl-9`}
+              className={`${inputClass} h-12 pl-12 text-base`}
             />
-            {scanMessage && (
-              <p
-                role="status"
-                className={`mt-2 text-sm ${
-                  scanMessage.tone === "error" ? "text-warn" : "text-muted"
-                }`}
-              >
-                {scanMessage.text}
-              </p>
-            )}
           </div>
-
-          {filteredProducts.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted">
-              {t("No se encontraron productos")}
+          {scanMessage && (
+            <p
+              role="status"
+              className={`mt-2 text-sm ${
+                scanMessage.tone === "error" ? "text-warn" : "text-muted"
+              }`}
+            >
+              {scanMessage.text}
             </p>
-          ) : (
-            <table className="w-full border-y border-line">
-              <thead>
-                <tr className="border-b border-line">
-                  <th className={tableHead}>{t("Producto")}</th>
-                  <th className={`${tableHead} text-right`}>{t("Stock")}</th>
-                  <th className={`${tableHead} text-right`}>{t("Precio")}</th>
-                  <th className="w-24" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-hover">
-                    <td className={tableCell}>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-muted">
-                        {t(product.category || "General")}
-                        {product.barcode && (
-                          <span className="tabular-nums"> · {product.barcode}</span>
-                        )}
-                      </p>
-                    </td>
-                    <td
-                      className={`${tableCell} text-right tabular-nums ${
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <CategoryChip
+            active={category === null}
+            onClick={() => setCategory(null)}
+            label={t("Todos")}
+          />
+          {categories.map((c) => (
+            <CategoryChip
+              key={c}
+              active={category === c}
+              onClick={() => setCategory(c)}
+              label={t(c)}
+            />
+          ))}
+        </div>
+
+        {visibleProducts.length === 0 ? (
+          <p className="py-16 text-center text-sm text-muted">
+            {t("No se encontraron productos")}
+          </p>
+        ) : (
+          <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(160px,1fr))] content-start gap-3 overflow-y-auto pr-1">
+            {visibleProducts.map((product) => {
+              const disabled = product.stock === 0 || cashSession === null;
+              return (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => addToCart(product)}
+                  disabled={disabled}
+                  className="flex h-28 flex-col justify-between rounded-lg border border-line bg-surface p-3 text-left transition-colors duration-150 hover:border-ink disabled:pointer-events-none disabled:opacity-40 active:scale-[0.98]"
+                >
+                  <div className="min-w-0">
+                    <p className="line-clamp-2 text-sm leading-snug font-medium">
+                      {product.name}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted">
+                      {t(product.category || "General")}
+                    </p>
+                  </div>
+                  <div className="flex items-end justify-between gap-2">
+                    <span className="text-lg font-semibold tabular-nums">
+                      {formatMoney(product.price)}
+                    </span>
+                    <span
+                      className={`text-xs tabular-nums ${
                         product.stock === 0
                           ? "text-danger"
                           : product.stock <= LOW_STOCK
@@ -281,169 +316,171 @@ export default function Sales() {
                           : "text-muted"
                       }`}
                     >
-                      {product.stock}
-                    </td>
-                    <td className={`${tableCell} text-right font-medium tabular-nums`}>
-                      {formatMoney(product.price)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => addToCart(product)}
-                        disabled={product.stock === 0 || cashSession === null}
-                        className={`${btnSecondary} h-8 px-3`}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        {t("Agregar")}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
+                      {product.stock === 0 ? t("Agotado") : product.stock}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
-        <aside className="self-start rounded-lg border border-line bg-surface lg:sticky lg:top-8">
-          <div className="flex items-baseline justify-between border-b border-line px-5 py-4">
-            <h2 className="text-base font-semibold">{t("Carrito")}</h2>
-            <p className="text-sm text-muted tabular-nums">
+      <aside className="flex min-h-0 flex-col border-l border-line bg-surface">
+        <div className="flex items-center justify-between border-b border-line px-5 py-3">
+          <div>
+            <h2 className="text-sm font-semibold">{t("Ticket")}</h2>
+            <p className="text-xs text-muted tabular-nums">
               {itemCount} {t("productos")}
             </p>
           </div>
-
-          {cart.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 px-5 py-14 text-center">
-              <ShoppingCart className="h-5 w-5 text-muted" />
-              <p className="text-sm text-muted">{t("El carrito está vacío")}</p>
-            </div>
-          ) : (
-            <ul className="max-h-96 divide-y divide-line overflow-y-auto px-5">
-              {cart.map((item) => (
-                <li key={item.id} className="anim-row py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-medium">{item.name}</p>
-                    <button
-                      onClick={() => removeFromCart(item.id)}
-                      aria-label={t("Quitar")}
-                      className={`${btnGhost} -mt-1 -mr-2 h-7 w-7 px-0`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex items-center rounded-md border border-line">
-                      <button
-                        onClick={() => decreaseQuantity(item.id)}
-                        aria-label={t("Disminuir")}
-                        className="flex h-7 w-7 items-center justify-center text-muted hover:text-ink"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-8 text-center text-sm tabular-nums">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => increaseQuantity(item.id)}
-                        aria-label={t("Aumentar")}
-                        disabled={item.quantity >= item.stock}
-                        className="flex h-7 w-7 items-center justify-center text-muted hover:text-ink disabled:opacity-30"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <p className="text-sm font-medium tabular-nums">
-                      {formatMoney(item.price * item.quantity)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
           {cart.length > 0 && (
-            <div className="space-y-5 border-t border-line p-5">
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between text-muted">
-                  <dt>{t("Subtotal")}</dt>
-                  <dd className="tabular-nums">{formatMoney(subtotal)}</dd>
+            <button onClick={cancelSale} className={`${btnGhost} h-8 px-2`}>
+              <X className="h-3.5 w-3.5" />
+              {t("Cancelar")}
+            </button>
+          )}
+        </div>
+
+        {cart.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center px-5 text-sm text-muted">
+            {t("El carrito está vacío")}
+          </div>
+        ) : (
+          <ul className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
+            {cart.map((item) => (
+              <li key={item.id} className="anim-row flex items-center gap-3 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.name}</p>
+                  <p className="text-xs text-muted tabular-nums">
+                    {formatMoney(item.price)} × {item.quantity}
+                  </p>
                 </div>
-                <div className="flex justify-between text-muted">
-                  <dt>{t("Impuesto (19%)")}</dt>
-                  <dd className="tabular-nums">{formatMoney(tax)}</dd>
+
+                <div className="flex items-center rounded-md border border-line">
+                  <button
+                    onClick={() => decreaseQuantity(item.id)}
+                    aria-label={t("Disminuir")}
+                    className="flex h-8 w-8 items-center justify-center text-muted hover:text-ink"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="w-7 text-center text-sm tabular-nums">
+                    {item.quantity}
+                  </span>
+                  <button
+                    onClick={() => increaseQuantity(item.id)}
+                    aria-label={t("Aumentar")}
+                    disabled={item.quantity >= item.stock}
+                    className="flex h-8 w-8 items-center justify-center text-muted hover:text-ink disabled:opacity-30"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
                 </div>
-              </dl>
 
-              <div className="flex items-baseline justify-between border-t border-line pt-4">
-                <span className="text-sm font-medium">{t("Total")}</span>
-                <span className="text-3xl font-semibold tracking-tight tabular-nums">
-                  {formatMoney(total)}
-                </span>
-              </div>
+                <p className="w-24 text-right text-sm font-medium tabular-nums">
+                  {formatMoney(item.price * item.quantity)}
+                </p>
 
-              <div className="space-y-3">
-                <Segmented
-                  value={payment}
-                  options={paymentOptions.map((option) => ({
-                    ...option,
-                    label: t(option.label),
-                  }))}
-                  onChange={setPayment}
-                  className="w-full"
-                />
+                <button
+                  onClick={() => removeFromCart(item.id)}
+                  aria-label={t("Quitar")}
+                  className="text-muted transition-colors hover:text-danger"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
-                {payment === "efectivo" && (
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-muted">{t("Recibido")}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={received}
-                        onChange={(e) => setReceived(e.target.value)}
-                        placeholder={total.toFixed(2)}
-                        className={`${inputClass} h-9 w-36 text-right tabular-nums`}
-                      />
-                    </label>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted">{t("Cambio")}</span>
-                      <span
-                        className={`font-medium tabular-nums ${
-                          cashShort ? "text-danger" : ""
-                        }`}
-                      >
-                        {cashShort
-                          ? t("Faltan {{amount}}", {
-                              amount: formatMoney(total - receivedAmount),
-                            })
-                          : formatMoney(change)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
+        <div className="shrink-0 space-y-4 border-t border-line p-5">
+          <div className="flex items-end justify-between">
+            <div className="space-y-0.5 text-xs text-muted tabular-nums">
+              <p>
+                {t("Subtotal")} {formatMoney(subtotal)}
+              </p>
+              <p>
+                {t("Impuesto (19%)")} {formatMoney(tax)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-medium text-muted">{t("Total")}</p>
+              <p className="text-4xl leading-none font-semibold tracking-tight tabular-nums">
+                {formatMoney(total)}
+              </p>
+            </div>
+          </div>
 
+          <div className="grid grid-cols-3 gap-2">
+            {paymentOptions.map((option) => {
+              const Icon = option.icon;
+              const active = payment === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setPayment(option.value)}
+                  aria-pressed={active}
+                  className={`flex h-14 flex-col items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors duration-150 ${
+                    active
+                      ? "border-accent bg-accent text-accent-ink"
+                      : "border-line text-muted hover:bg-hover hover:text-ink"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t(option.label)}
+                </button>
+              );
+            })}
+          </div>
+
+          {payment === "efectivo" && (
+            <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-3">
               <div className="space-y-2">
+                <div className="flex items-baseline justify-between rounded-md bg-hover px-3 py-2">
+                  <span className="text-xs text-muted">{t("Recibido")}</span>
+                  <span className="text-lg font-semibold tabular-nums">
+                    {formatMoney(receivedAmount)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between px-3">
+                  <span className="text-xs text-muted">
+                    {cashShort ? t("Faltan") : t("Cambio")}
+                  </span>
+                  <span
+                    className={`font-medium tabular-nums ${
+                      cashShort ? "text-danger" : ""
+                    }`}
+                  >
+                    {cashShort
+                      ? formatMoney(total - receivedAmount)
+                      : formatMoney(change)}
+                  </span>
+                </div>
                 <button
-                  onClick={processSale}
-                  disabled={!canComplete}
-                  className={`${btnPrimary} h-11 w-full`}
+                  type="button"
+                  onClick={() => setReceived(String(Math.ceil(total)))}
+                  disabled={cart.length === 0}
+                  className={`${btnGhost} w-full border border-line`}
                 >
-                  <Check className="h-4 w-4" />
-                  {t("Completar venta")}
-                </button>
-                <button
-                  onClick={cancelSale}
-                  className={`${btnGhost} w-full`}
-                >
-                  {t("Cancelar")}
+                  {t("Exacto")}
                 </button>
               </div>
+              <Keypad onKey={pressKey} />
             </div>
           )}
-        </aside>
-      </div>
+
+          <button
+            onClick={processSale}
+            disabled={!canComplete}
+            className={`${btnPrimary} h-14 w-full text-base`}
+          >
+            <Check className="h-5 w-5" />
+            {t("Completar venta")}
+          </button>
+        </div>
+      </aside>
 
       {completed &&
         createPortal(
@@ -451,7 +488,7 @@ export default function Sales() {
             role="status"
             className="anim-toast fixed right-6 bottom-6 z-50 flex items-center gap-4 rounded-lg border border-line bg-surface px-5 py-4"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-ink">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-success text-surface">
               <Check className="h-4 w-4" />
             </span>
             <div>
@@ -463,6 +500,31 @@ export default function Sales() {
           </div>,
           document.body
         )}
-    </>
+    </div>
+  );
+}
+
+function CategoryChip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`h-8 rounded-full border px-4 text-sm transition-colors duration-150 ${
+        active
+          ? "border-accent bg-accent font-medium text-accent-ink"
+          : "border-line text-muted hover:text-ink"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

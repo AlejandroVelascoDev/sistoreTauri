@@ -12,7 +12,7 @@ const OUTFLOW_KINDS: [&str; 2] = ["retiro", "devolucion"];
 
 fn read_session(conn: &Connection, session_id: i64) -> Result<Option<CashSession>, String> {
     conn.query_row(
-        "SELECT id, opened_at, opening_fund, closed_at, counted_cash, expected_cash, difference, notes
+        "SELECT id, opened_at, opening_fund, closed_at, counted_cash, expected_cash, difference, notes, kept_fund
          FROM cash_sessions WHERE id = ?1",
         params![session_id],
         |row| {
@@ -25,6 +25,7 @@ fn read_session(conn: &Connection, session_id: i64) -> Result<Option<CashSession
                 expected_cash: row.get(5)?,
                 difference: row.get(6)?,
                 notes: row.get(7)?,
+                kept_fund: row.get(8)?,
             })
         },
     )
@@ -265,13 +266,21 @@ pub fn cash_close(app: AppHandle, req: CloseCashRequest) -> Result<CutSummary, S
         return Err("Explica la diferencia en las notas antes de cerrar el corte".to_string());
     }
 
+    let kept_fund = req.kept_fund.unwrap_or(summary.session.opening_fund);
+    if kept_fund < 0.0 {
+        return Err("El fondo que queda en caja no puede ser negativo".to_string());
+    }
+    if kept_fund > counted + 0.005 {
+        return Err("El fondo que queda en caja no puede ser mayor al efectivo contado".to_string());
+    }
+
     let denominations_json = serde_json::to_string(&req.denominations).map_err(|e| e.to_string())?;
 
     conn.execute(
         "UPDATE cash_sessions
          SET closed_at = ?1, counted_cash = ?2, expected_cash = ?3, difference = ?4,
-             denominations = ?5, notes = ?6
-         WHERE id = ?7",
+             denominations = ?5, notes = ?6, kept_fund = ?7
+         WHERE id = ?8",
         params![
             Utc::now().to_rfc3339(),
             counted,
@@ -279,12 +288,27 @@ pub fn cash_close(app: AppHandle, req: CloseCashRequest) -> Result<CutSummary, S
             difference,
             denominations_json,
             notes,
+            kept_fund,
             open_id
         ],
     )
     .map_err(|e| e.to_string())?;
 
     summary_for(&conn, open_id)
+}
+
+#[command]
+pub fn cash_suggested_fund(app: AppHandle) -> Result<Option<f64>, String> {
+    let conn = open_database(&app);
+
+    conn.query_row(
+        "SELECT kept_fund FROM cash_sessions WHERE closed_at IS NOT NULL ORDER BY id DESC LIMIT 1",
+        [],
+        |row| row.get::<_, Option<f64>>(0),
+    )
+    .optional()
+    .map(|value| value.flatten())
+    .map_err(|e| e.to_string())
 }
 
 #[command]

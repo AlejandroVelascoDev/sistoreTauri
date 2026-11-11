@@ -28,18 +28,22 @@ export default function Cash() {
   const [error, setError] = useState<string | null>(null);
   const [openingFund, setOpeningFund] = useState("");
   const [lastClosed, setLastClosed] = useState<CutSummary | null>(null);
+  const [suggestedFund, setSuggestedFund] = useState<number | null>(null);
   const [showMovement, setShowMovement] = useState(false);
   const [showClose, setShowClose] = useState(false);
 
   const load = async () => {
     try {
-      const [summary, closed] = await Promise.all([
+      const [summary, closed, fund] = await Promise.all([
         CashService.getCurrent(),
         CashService.history(),
+        CashService.suggestedFund(),
       ]);
       setCurrent(summary);
       setHistory(closed);
+      setSuggestedFund(fund);
       setError(null);
+      window.dispatchEvent(new Event("cash-changed"));
     } catch (err) {
       setError(String(err));
     } finally {
@@ -50,6 +54,12 @@ export default function Cash() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!current && suggestedFund !== null && openingFund === "") {
+      setOpeningFund(String(suggestedFund));
+    }
+  }, [suggestedFund, current]);
 
   const handleOpen = async (e: FormEvent) => {
     e.preventDefault();
@@ -124,6 +134,11 @@ export default function Cash() {
               className={`${inputClass} tabular-nums`}
               placeholder="0.00"
             />
+            {suggestedFund !== null && (
+              <span className="mt-1.5 block text-xs text-muted">
+                {t("Fondo que quedó en caja en el último corte final")}
+              </span>
+            )}
           </label>
 
           {error && (

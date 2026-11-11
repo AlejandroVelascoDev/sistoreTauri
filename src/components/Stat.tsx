@@ -4,9 +4,10 @@ interface StatProps {
   label: string;
   value: ReactNode;
   tone?: "default" | "warn";
+  hint?: ReactNode;
 }
 
-export default function Stat({ label, value, tone = "default" }: StatProps) {
+export default function Stat({ label, value, tone = "default", hint }: StatProps) {
   return (
     <div className="px-6 py-5">
       <dt className="text-sm text-muted">{label}</dt>
@@ -17,6 +18,7 @@ export default function Stat({ label, value, tone = "default" }: StatProps) {
       >
         {value}
       </dd>
+      {hint && <dd className="mt-1 text-xs text-muted tabular-nums">{hint}</dd>}
     </div>
   );
 }

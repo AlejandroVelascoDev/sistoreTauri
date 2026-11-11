@@ -39,6 +39,7 @@ type ProductForm = {
   stock: string;
   category: string;
   barcode: string;
+  cost: string;
 };
 
 const emptyForm: ProductForm = {
@@ -47,6 +48,7 @@ const emptyForm: ProductForm = {
   stock: "",
   category: "General",
   barcode: "",
+  cost: "",
 };
 
 export default function Inventory() {
@@ -102,6 +104,7 @@ export default function Inventory() {
       stock: product.stock.toString(),
       category: product.category || "General",
       barcode: product.barcode ?? "",
+      cost: product.cost ? product.cost.toString() : "",
     });
     setShowFormModal(true);
   }
@@ -133,6 +136,7 @@ export default function Inventory() {
         stock: product.stock + 1,
         category: product.category,
         barcode: product.barcode,
+        cost: product.cost,
       });
       await loadProducts();
       setScanMessage({
@@ -160,6 +164,7 @@ export default function Inventory() {
       stock: Number(form.stock),
       category: form.category,
       barcode: form.barcode || null,
+      cost: Number(form.cost) || 0,
     };
 
     try {
@@ -376,7 +381,18 @@ export default function Inventory() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <Field label={t("Costo (opcional)")}>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                className={`${inputClass} tabular-nums`}
+                value={form.cost}
+                onChange={(e) => updateField("cost", e.target.value)}
+              />
+            </Field>
             <Field label={t("Precio")}>
               <input
                 type="number"

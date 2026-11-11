@@ -9,6 +9,7 @@ export type CashSession = {
   expected_cash: number | null;
   difference: number | null;
   notes: string | null;
+  kept_fund: number | null;
 };
 
 export type CashMovementKind = "ingreso" | "retiro" | "devolucion";
@@ -54,6 +55,7 @@ export type CloseCashRequest = {
   session_id: number;
   denominations: DenominationCount[];
   notes?: string | null;
+  kept_fund?: number | null;
 };
 
 export const CashService = {
@@ -71,6 +73,10 @@ export const CashService = {
 
   async close(payload: CloseCashRequest): Promise<CutSummary> {
     return await invoke("cash_close", { req: payload });
+  },
+
+  async suggestedFund(): Promise<number | null> {
+    return await invoke("cash_suggested_fund");
   },
 
   async history(): Promise<CutSummary[]> {
