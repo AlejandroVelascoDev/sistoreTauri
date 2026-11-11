@@ -1,8 +1,150 @@
 @import "tailwindcss";
-@tailwind utilities;
+@import "@fontsource-variable/ibm-plex-sans";
+
+@theme {
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
+  --color-warn: var(--warn);
+  --color-success: var(--success);
+}
+
+:root {
+  --bg: #e6e7ea;
+  --surface: #f8f8f6;
+  --hover: #e9eaed;
+  --line: #d3d6dc;
+  --ink: #111316;
+  --muted: #5d636d;
+  --accent: #008f60;
+  --accent-ink: #111316;
+  --danger: #b42318;
+  --danger-ink: #ffffff;
+  --warn: #9a4a00;
+  --success: #17794f;
+  color-scheme: light;
+}
+
+:root.dark {
+  --bg: #0b0c0f;
+  --surface: #15171c;
+  --hover: #1f2228;
+  --line: #2a2e36;
+  --ink: #f1f2f4;
+  --muted: #9097a2;
+  --accent: #1fd08b;
+  --accent-ink: #111316;
+  --danger: #ff6b5e;
+  --danger-ink: #111316;
+  --warn: #ffb547;
+  --success: #3ddc91;
+  color-scheme: dark;
+}
 
 @layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   body {
-    @apply bg-gray-100 text-gray-900;
+    @apply bg-bg text-ink font-sans antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.anim-page {
+  animation: page-in 180ms ease-out;
+}
+
+.anim-fade {
+  animation: fade-in 150ms ease-out both;
+}
+
+.anim-modal {
+  animation: modal-in 160ms ease-out both;
+}
+
+.anim-toast {
+  animation: toast-in 200ms ease-out both;
+}
+
+.anim-row {
+  animation: row-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

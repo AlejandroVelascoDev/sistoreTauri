@@ -1,261 +1,313 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  DollarSign,
-  Users,
-  ShoppingCart,
-  Package,
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight,
-  Clock,
-} from "lucide-react";
-import { ProductService } from "../api/productService";
-import { SaleService } from "../api/saleService";
+import { ProductService, type ProductModel } from "../api/productService";
+import { SaleService, type SaleSummary } from "../api/saleService";
+import { StatsService, type DayStat, type ProductStat } from "../api/statsService";
+import PageHeader from "../components/PageHeader";
+import Segmented from "../components/Segmented";
+import Stat from "../components/Stat";
+import WeekBars from "../components/charts/WeekBars";
+import { formatMoney, parseDate } from "../lib/format";
+import { btnPrimary } from "../lib/ui";
 
-interface StatCardProps {
-  title: string;
-  value: number;
-  cambio: number;
-  icon: React.ComponentType<{ className: string }>;
-  color: string;
-  prefix?: string;
+const LOW_STOCK = 10;
+
+function dayKey(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function percentChange(current: number, previous: number) {
+  if (previous === 0) return null;
+  return ((current - previous) / previous) * 100;
 }
 
 export default function Dashboard() {
-  const { t } = useTranslation();
-  const [stats, setStats] = useState({
-    ventasHoy: { valor: 0, cambio: 0 },
-    usuarios: { valor: 248, cambio: 8.2 },
-    ordenes: { valor: 0, cambio: 0 },
-    inventario: { valor: 0, cambio: 0 },
-  });
-  const [recentSales, setRecentSales] = useState([]);
+  const { t, i18n } = useTranslation();
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [products, setProducts] = useState<ProductModel[]>([]);
+  const [sales, setSales] = useState<SaleSummary[]>([]);
+  const [days, setDays] = useState<DayStat[]>([]);
+  const [topProducts, setTopProducts] = useState<ProductStat[]>([]);
+  const [topRange, setTopRange] = useState<"today" | "week">("today");
+
+  const today = useMemo(() => new Date(), []);
+  const thisMonday = useMemo(() => {
+    const sinceMonday = (today.getDay() + 6) % 7;
+    return addDays(today, -sinceMonday);
+  }, [today]);
+  const prevMonday = addDays(thisMonday, -7);
 
   useEffect(() => {
-    async function loadData() {
+    (async () => {
       try {
-        const products = await ProductService.getAll();
-        const sales = await SaleService.getAll();
-
-        const today = new Date().toDateString();
-
-        const salesToday = sales.filter(
-          (sale) => new Date(sale.created_at).toDateString() === today
-        );
-
-        const ventasHoy = salesToday.reduce((sum, s) => sum + s.total, 0);
-        const ordenesHoy = salesToday.length;
-        const inventario = products.reduce((sum, p) => sum + p.stock, 0);
-
-        const sortedSales = sales.sort(
-          (a, b) => new Date(b.created_at) - new Date(a.created_at)
-        );
-
-        const recentSalesData = sortedSales.slice(0, 3).map((sale) => ({
-          id: `#${String(sale.id).padStart(4, "0")}`,
-          cliente: "Ticket #" + sale.id,
-          monto: sale.total,
-          hora: new Date(sale.created_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        }));
-
-        setStats({
-          ventasHoy: { valor: ventasHoy, cambio: 0 },
-          usuarios: { valor: 248, cambio: 8.2 },
-          ordenes: { valor: ordenesHoy, cambio: 0 },
-          inventario: { valor: inventario, cambio: 0 },
-        });
-
-        setRecentSales(recentSalesData);
+        const [productList, saleList, dailyStats] = await Promise.all([
+          ProductService.getAll(),
+          SaleService.getAll(),
+          StatsService.daily(dayKey(prevMonday), dayKey(addDays(thisMonday, 6))),
+        ]);
+        setProducts(productList);
+        setSales(saleList);
+        setDays(dailyStats);
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
+        setFailed(true);
+      } finally {
+        setLoading(false);
       }
-    }
-
-    loadData();
+    })();
   }, []);
 
-  const StatCard = ({
-    title,
-    value,
-    cambio,
-    icon: Icon,
-    color,
-    prefix = "$",
-  }: StatCardProps) => {
-    const esPositivo = cambio >= 0;
+  useEffect(() => {
+    (async () => {
+      try {
+        const from = topRange === "today" ? dayKey(today) : dayKey(thisMonday);
+        setTopProducts(await StatsService.topProducts(from, dayKey(today), 8));
+      } catch (error) {
+        console.error("Failed to load top products:", error);
+      }
+    })();
+  }, [topRange]);
 
-    return (
-      <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 group">
-        <div className="flex items-start justify-between mb-4">
-          <div
-            className={`w-12 h-12 rounded-xl bg-linear-to-br ${color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}
-          >
-            <Icon className="w-6 h-6 text-white" />
-          </div>
-          <div
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg ${
-              esPositivo
-                ? "bg-green-500/10 text-green-400"
-                : "bg-red-500/10 text-red-400"
-            }`}
-          >
-            {esPositivo ? (
-              <TrendingUp className="w-3 h-3" />
-            ) : (
-              <TrendingDown className="w-3 h-3" />
-            )}
-            <span className="text-xs font-medium">{Math.abs(cambio)}%</span>
-          </div>
-        </div>
+  const byDay = useMemo(() => new Map(days.map((d) => [d.day, d])), [days]);
 
-        <h3 className="text-gray-400 text-sm font-medium mb-1">{title}</h3>
-        <p className="text-3xl font-bold text-white">
-          {prefix}
-          {typeof value === "number" ? value.toLocaleString() : value}
-        </p>
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(thisMonday, i));
+  const weekLabels = weekDates.map((date) =>
+    date.toLocaleDateString(i18n.language, { weekday: "short" })
+  );
+  const thisWeekStats = weekDates.map((date) => byDay.get(dayKey(date)));
+  const prevWeekStats = weekDates.map((date) =>
+    byDay.get(dayKey(addDays(date, -7)))
+  );
 
-        <div className="mt-3 pt-3 border-t border-slate-700/50">
-          <p className="text-xs text-gray-500">{t("vs. día anterior")}</p>
-        </div>
-      </div>
-    );
-  };
+  const sumOf = (list: (DayStat | undefined)[], key: "sales" | "profit") =>
+    list.reduce((sum, d) => sum + (d?.[key] ?? 0), 0);
+
+  const thisWeekSales = sumOf(thisWeekStats, "sales");
+  const prevWeekSales = sumOf(prevWeekStats, "sales");
+  const thisWeekProfit = sumOf(thisWeekStats, "profit");
+  const prevWeekProfit = sumOf(prevWeekStats, "profit");
+  const elapsedDays = (today.getDay() + 6) % 7 + 1;
+  const weekChange = percentChange(thisWeekSales, sumOf(prevWeekStats.slice(0, elapsedDays), "sales"));
+
+  const todayStats = byDay.get(dayKey(today));
+  const todaySales = todayStats?.sales ?? 0;
+  const todayProfit = todayStats?.profit ?? 0;
+  const todayOrders = todayStats?.count ?? 0;
+
+  const lowStock = products
+    .filter((p) => p.stock <= LOW_STOCK)
+    .sort((a, b) => a.stock - b.stock);
+  const recentSales = [...sales]
+    .sort(
+      (a, b) =>
+        parseDate(b.occurred_at).getTime() - parseDate(a.occurred_at).getTime()
+    )
+    .slice(0, 8);
+
+  const maxQuantity = Math.max(1, ...topProducts.map((p) => p.quantity));
+
+  if (loading) return <p role="status">{t("Cargando...")}</p>;
+  if (failed) return <p role="alert">{t("No se pudieron cargar los datos")}</p>;
 
   return (
-    <div className="bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 p-8 overflow-y-auto min-h-screen">
-      {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-4xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
-          {t("Dashboard")}
-        </h2>
-        <p className="text-gray-400">
-          {t("Resumen de tu tienda en tiempo real")}
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title={t("Dashboard")}
+        description={t("Resumen de tu tienda")}
+        actions={
+          <Link to="/sales" className={btnPrimary}>
+            {t("Nueva venta")}
+          </Link>
+        }
+      />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          title={t("Ventas hoy")}
-          value={stats.ventasHoy.valor}
-          cambio={stats.ventasHoy.cambio}
-          icon={DollarSign}
-          color="from-blue-500 to-blue-600"
-          prefix="$"
+      <dl className="grid grid-cols-2 divide-x divide-line rounded-lg border border-line bg-surface md:grid-cols-4">
+        <Stat label={t("Ventas hoy")} value={formatMoney(todaySales)} hint={`${todayOrders} ${t("órdenes")}`} />
+        <Stat label={t("Ganancia hoy")} value={formatMoney(todayProfit)} />
+        <Stat
+          label={t("Ventas esta semana")}
+          value={formatMoney(thisWeekSales)}
+          hint={
+            weekChange === null ? (
+              t("Sin datos de la semana anterior")
+            ) : (
+              <span className={weekChange >= 0 ? "text-success" : "text-danger"}>
+                {weekChange >= 0 ? "+" : "−"}
+                {Math.abs(weekChange).toFixed(0)}% {t("vs semana anterior")}
+              </span>
+            )
+          }
         />
-
-        <StatCard
-          title={t("Usuarios activos")}
-          value={stats.usuarios.valor}
-          cambio={stats.usuarios.cambio}
-          icon={Users}
-          color="from-purple-500 to-purple-600"
-          prefix=""
+        <Stat
+          label={t("Stock bajo")}
+          value={lowStock.length}
+          tone={lowStock.length > 0 ? "warn" : "default"}
         />
+      </dl>
 
-        <StatCard
-          title={t("Órdenes hoy")}
-          value={stats.ordenes.valor}
-          cambio={stats.ordenes.cambio}
-          icon={ShoppingCart}
-          color="from-green-500 to-green-600"
-          prefix=""
-        />
+      <div className="mt-10 grid gap-10 xl:grid-cols-[1.4fr_1fr]">
+        <section>
+          <h2 className="text-base font-semibold">{t("Ventas por día")}</h2>
+          <p className="mt-0.5 mb-6 text-sm text-muted">
+            {t("Esta semana comparada con la anterior")}
+          </p>
 
-        <StatCard
-          title={t("Productos stock")}
-          value={stats.inventario.valor}
-          cambio={stats.inventario.cambio}
-          icon={Package}
-          color="from-orange-500 to-orange-600"
-          prefix=""
-        />
-      </div>
+          <WeekBars
+            labels={weekLabels}
+            current={thisWeekStats.map((d) => d?.sales ?? 0)}
+            previous={prevWeekStats.map((d) => d?.sales ?? 0)}
+            currentLabel={t("Esta semana")}
+            previousLabel={t("Semana anterior")}
+            format={formatMoney}
+          />
 
-      {/* Secondary Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Ventas Recientes */}
-        <div className="lg:col-span-2 bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl border border-slate-700/50">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-white">
-              {t("Ventas recientes")}
-            </h3>
-            <button className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-1 transition-colors">
-              {t("Ver todas")}
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
-          </div>
+          <table className="mt-8 w-full border-y border-line text-sm">
+            <thead>
+              <tr className="border-b border-line">
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted">{t("Día")}</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted">{t("Esta semana")}</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted">{t("Semana anterior")}</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted">{t("Ganancia")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {weekDates.map((date, i) => (
+                <tr key={dayKey(date)}>
+                  <td className="px-3 py-2 capitalize">{weekLabels[i]}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatMoney(thisWeekStats[i]?.sales ?? 0)}
+                  </td>
+                  <td className="px-3 py-2 text-right text-muted tabular-nums">
+                    {formatMoney(prevWeekStats[i]?.sales ?? 0)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatMoney(thisWeekStats[i]?.profit ?? 0)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="font-medium">
+                <td className="px-3 py-2">{t("Total")}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{formatMoney(thisWeekSales)}</td>
+                <td className="px-3 py-2 text-right text-muted tabular-nums">{formatMoney(prevWeekSales)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {formatMoney(thisWeekProfit)}
+                  <span className="ml-2 text-xs font-normal text-muted">
+                    {t("semana anterior")} {formatMoney(prevWeekProfit)}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
 
-          <div className="space-y-3">
-            {recentSales.map((venta) => (
-              <div
-                key={venta.id}
-                className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200 group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                    {venta.id}
-                  </div>
-                  <div>
-                    <p className="text-white font-medium group-hover:text-blue-400 transition-colors">
-                      {venta.cliente}
-                    </p>
-                    <p className="text-gray-500 text-sm flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {venta.hora}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-green-400 font-bold text-lg">
-                    ${venta.monto.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl border border-slate-700/50">
-          <h3 className="text-xl font-bold text-white mb-6">
-            {t("Acciones rápidas")}
-          </h3>
-
-          <div className="space-y-3">
-            <button className="w-full bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-105">
-              {t("Nueva venta")}
-            </button>
-
-            <button className="w-full bg-slate-700/50 hover:bg-slate-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-slate-500">
-              {t("Agregar producto")}
-            </button>
-
-            <button className="w-full bg-slate-700/50 hover:bg-slate-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-slate-500">
-              {t("Registrar cliente")}
-            </button>
-
-            <button className="w-full bg-slate-700/50 hover:bg-slate-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-slate-500">
-              {t("Ver reportes")}
-            </button>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-slate-700/50">
-            <div className="bg-linear-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-4">
-              <p className="text-green-400 text-sm font-medium mb-1">
-                {t("Estado del sistema")}
-              </p>
-              <p className="text-gray-400 text-xs">
-                {t("Todos los servicios operando normalmente")}
+        <section>
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold">{t("Lo más vendido")}</h2>
+              <p className="mt-0.5 text-sm text-muted">
+                {topRange === "today" ? t("Unidades vendidas hoy") : t("Unidades vendidas esta semana")}
               </p>
             </div>
+            <Segmented
+              value={topRange}
+              options={[
+                { value: "today", label: t("Hoy") },
+                { value: "week", label: t("Esta semana") },
+              ]}
+              onChange={setTopRange}
+            />
           </div>
-        </div>
+
+          {topProducts.length === 0 ? (
+            <p className="text-sm text-muted">{t("Sin ventas en este periodo")}</p>
+          ) : (
+            <ul className="space-y-3">
+              {topProducts.map((product, index) => (
+                <li key={`${product.name}-${index}`} className="text-sm">
+                  <div className="mb-1 flex justify-between gap-3">
+                    <span className="truncate font-medium">{product.name}</span>
+                    <span className="tabular-nums text-muted">
+                      {product.quantity} · {t("ganancia")} {formatMoney(product.profit)}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-hover">
+                    <div
+                      className="h-2 rounded-full bg-accent transition-[width] duration-500"
+                      style={{ width: `${(product.quantity / maxQuantity) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
-    </div>
+
+      <div className="mt-12 grid gap-10 lg:grid-cols-2">
+        <section>
+          <h2 className="text-base font-semibold">{t("Ventas recientes")}</h2>
+          {recentSales.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">
+              {t("Todavía no hay ventas registradas")}
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-line border-y border-line">
+              {recentSales.map((sale) => (
+                <li key={sale.id} className="flex items-center justify-between py-3 text-sm">
+                  <div>
+                    <p className="font-medium">Ticket #{sale.id}</p>
+                    <p className="text-muted tabular-nums">
+                      {parseDate(sale.occurred_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <p className="font-medium tabular-nums">{formatMoney(sale.total)}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section>
+          <h2 className="text-base font-semibold">{t("Productos por agotarse")}</h2>
+          {lowStock.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">
+              {t("Todos los productos tienen stock suficiente")}
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-line border-y border-line">
+              {lowStock.slice(0, 8).map((product) => (
+                <li key={product.id} className="flex items-center justify-between py-3 text-sm">
+                  <div>
+                    <p className="font-medium">{product.name}</p>
+                    <p className="text-muted">{t(product.category || "General")}</p>
+                  </div>
+                  <p
+                    className={`font-medium tabular-nums ${
+                      product.stock === 0 ? "text-danger" : "text-warn"
+                    }`}
+                  >
+                    {product.stock} {t("unidades")}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </>
   );
 }

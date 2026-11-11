@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProductModel {
@@ -8,6 +8,8 @@ pub struct ProductModel {
     pub stock: i64,
     pub category: Option<String>,
     pub created_at: String,
+    pub barcode: Option<String>,
+    pub cost: f64,
 }
 
 #[derive(Deserialize, Debug)]
@@ -16,6 +18,9 @@ pub struct CreateProductRequest {
     pub price: f64,
     pub stock: i64,
     pub category: Option<String>,
+    pub barcode: Option<String>,
+    #[serde(default)]
+    pub cost: f64,
 }
 
 #[derive(Deserialize, Debug)]
@@ -25,4 +30,7 @@ pub struct UpdateProductRequest {
     pub price: f64,
     pub stock: i64,
     pub category: Option<String>,
+    pub barcode: Option<String>,
+    #[serde(default)]
+    pub cost: Option<f64>,
 }

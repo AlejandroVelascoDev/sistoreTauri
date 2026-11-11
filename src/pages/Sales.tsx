@@ -1,70 +1,103 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  Search,
-  ShoppingCart,
-  Trash2,
-  Plus,
-  Minus,
-  X,
+  Banknote,
   Check,
-  Package,
+  CreditCard,
+  Landmark,
+  Minus,
+  Plus,
+  ScanLine,
+  Trash2,
+  X,
 } from "lucide-react";
+import { ProductService, type ProductModel } from "../api/productService";
+import { SaleService, type PaymentMethod } from "../api/saleService";
+import { CashService, type CutSummary } from "../api/cashService";
+import Keypad from "../components/pos/Keypad";
+import { formatMoney } from "../lib/format";
+import { btnGhost, btnPrimary, inputClass } from "../lib/ui";
 
-import {
-  ProductService,
-  ProductModel,
-  CreateProductRequest,
-  UpdateProductRequest,
-} from "../api/productService";
-import { SaleService } from "../api/saleService";
+const TAX_RATE = 0.19;
+const LOW_STOCK = 10;
+
+const paymentOptions: { value: PaymentMethod; label: string; icon: typeof Banknote }[] = [
+  { value: "efectivo", label: "Efectivo", icon: Banknote },
+  { value: "tarjeta", label: "Tarjeta", icon: CreditCard },
+  { value: "transferencia", label: "Transferencia", icon: Landmark },
+];
+
+type CartItem = {
+  id: number;
+  name: string;
+  price: number;
+  quantity: number;
+  stock: number;
+};
 
 export default function Sales() {
   const { t } = useTranslation();
-  // API data
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [products, setProducts] = useState<ProductModel[]>([]);
-  const [sales, setSales] = useState<any[]>([]);
-  const [lastSaleTotal, setLastSaleTotal] = useState(0);
-
-  // UI state
   const [search, setSearch] = useState("");
-  const [cart, setCart] = useState<any[]>([]);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [category, setCategory] = useState<string | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [completed, setCompleted] = useState<{ total: number } | null>(null);
+  const [cashSession, setCashSession] = useState<CutSummary | null>(null);
+  const [payment, setPayment] = useState<PaymentMethod>("efectivo");
+  const [received, setReceived] = useState("");
+  const [scanMessage, setScanMessage] = useState<{
+    text: string;
+    tone: "ok" | "error";
+  } | null>(null);
 
-  // Load API data
   useEffect(() => {
     (async () => {
       try {
         setProducts(await ProductService.getAll());
-        setSales(await SaleService.getAll());
+        setCashSession(await CashService.getCurrent());
       } catch (err) {
         console.error("Error loading data", err);
       }
     })();
   }, []);
 
-  // Filter products
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) =>
-      `${p.name} ${p.category || ""}`
-        .toLowerCase()
-        .includes(search.toLowerCase())
-    );
-  }, [products, search]);
+  useEffect(() => {
+    if (!completed) return;
+    const id = setTimeout(() => setCompleted(null), 3500);
+    return () => clearTimeout(id);
+  }, [completed]);
 
-  // Cart Logic
+  const categories = useMemo(
+    () => [...new Set(products.map((p) => p.category || "General"))],
+    [products]
+  );
+
+  const visibleProducts = useMemo(() => {
+    const term = search.toLowerCase();
+    return products.filter(
+      (p) =>
+        (category === null || (p.category || "General") === category) &&
+        `${p.name} ${p.category || ""} ${p.barcode || ""}`
+          .toLowerCase()
+          .includes(term)
+    );
+  }, [products, search, category]);
+
   const addToCart = (product: ProductModel) => {
-    const exists = cart.find((c) => c.id === product.id);
-    if (exists) {
-      if (exists.quantity >= product.stock) return;
-      setCart(
-        cart.map((c) =>
+    setCart((current) => {
+      const exists = current.find((c) => c.id === product.id);
+      if (exists) {
+        if (exists.quantity >= product.stock) return current;
+        return current.map((c) =>
           c.id === product.id ? { ...c, quantity: c.quantity + 1 } : c
-        )
-      );
-    } else {
-      setCart([
-        ...cart,
+        );
+      }
+      return [
+        ...current,
         {
           id: product.id,
           name: product.name,
@@ -72,13 +105,51 @@ export default function Sales() {
           quantity: 1,
           stock: product.stock,
         },
-      ]);
+      ];
+    });
+  };
+
+  const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+
+    const code = search.trim();
+    if (!code) return;
+
+    const product = products.find((p) => p.barcode === code);
+    if (!product) {
+      if (/^\d+$/.test(code)) {
+        setScanMessage({
+          text: t("No hay un producto con el código {{code}}", { code }),
+          tone: "error",
+        });
+      }
+      return;
     }
+
+    if (!cashSession) {
+      setScanMessage({ text: t("La caja está cerrada. Ábrela para registrar ventas."), tone: "error" });
+      return;
+    }
+    if ((cart.find((item) => item.id === product.id)?.quantity ?? 0) >= product.stock) {
+      setScanMessage({
+        text: t("{{name}} no tiene stock", { name: product.name }),
+        tone: "error",
+      });
+      return;
+    }
+
+    addToCart(product);
+    setSearch("");
+    setScanMessage({
+      text: t("Agregado: {{name}}", { name: product.name }),
+      tone: "ok",
+    });
   };
 
   const increaseQuantity = (id: number) => {
-    setCart(
-      cart.map((c) =>
+    setCart((current) =>
+      current.map((c) =>
         c.id === id && c.quantity < c.stock
           ? { ...c, quantity: c.quantity + 1 }
           : c
@@ -87,8 +158,8 @@ export default function Sales() {
   };
 
   const decreaseQuantity = (id: number) => {
-    setCart(
-      cart
+    setCart((current) =>
+      current
         .map((c) =>
           c.id === id && c.quantity > 1 ? { ...c, quantity: c.quantity - 1 } : c
         )
@@ -97,19 +168,38 @@ export default function Sales() {
   };
 
   const removeFromCart = (id: number) => {
-    setCart(cart.filter((c) => c.id !== id));
+    setCart((current) => current.filter((c) => c.id !== id));
   };
 
-  const cancelSale = () => setCart([]);
+  const cancelSale = () => {
+    setCart([]);
+    setReceived("");
+  };
 
-  // Totals
+  const pressKey = (key: string) => {
+    setReceived((current) => {
+      if (key === "⌫") return current.slice(0, -1);
+      return (current + key).replace(/^0+(?=\d)/, "").slice(0, 9);
+    });
+  };
+
   const subtotal = cart.reduce((s, item) => s + item.price * item.quantity, 0);
-  const tax = subtotal * 0.19;
+  const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
+  const itemCount = cart.reduce((s, item) => s + item.quantity, 0);
 
-  // Process sale using API
+  const receivedAmount = received === "" ? total : Number(received) || 0;
+  const change =
+    payment === "efectivo" ? Math.max(0, receivedAmount - total) : 0;
+  const cashShort =
+    payment === "efectivo" && cart.length > 0 && receivedAmount + 0.005 < total;
+  const canComplete =
+    cart.length > 0 && cashSession !== null && !cashShort;
+
   const processSale = async () => {
-    if (cart.length === 0) return;
+    if (!canComplete || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
 
     try {
       const saleTotal = total;
@@ -123,248 +213,329 @@ export default function Sales() {
         subtotal,
         tax,
         total,
+        payment_method: payment,
+        received: payment === "efectivo" ? receivedAmount : null,
       });
 
-      // Refresh
-      setProducts(await ProductService.getAll());
-      setSales(await SaleService.getAll());
-
       setCart([]);
-      setLastSaleTotal(saleTotal);
-      setShowConfirmation(true);
-      setTimeout(() => setShowConfirmation(false), 3000);
+      setReceived("");
+      setPayment("efectivo");
+      setCompleted({ total: saleTotal });
+      window.dispatchEvent(new Event("cash-changed"));
+      setProducts(await ProductService.getAll());
     } catch (err) {
       console.error("Sale error", err);
       alert(String(err));
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-4xl font-bold bg-linear-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
-          {t("Punto de Venta")}
-        </h2>
-        <p className="text-gray-400">
-          {t("Selecciona productos para agregar a la venta")}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* PRODUCTS */}
-        <div className="lg:col-span-2">
-          {/* Search */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder={t("Buscar productos por nombre o categoría...")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
-              />
-            </div>
+    <div className="grid h-full grid-cols-[1fr_380px]">
+      <section className="flex min-h-0 flex-col gap-4 p-5">
+        {cashSession === null && (
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-warn/40 bg-surface px-4 py-3">
+            <p className="text-sm text-muted">
+              {t("La caja está cerrada. Ábrela para registrar ventas.")}
+            </p>
+            <Link to="/corte" className={btnPrimary}>
+              {t("Abrir caja")}
+            </Link>
           </div>
+        )}
 
-          {/* Product list */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredProducts.length > 0 ? (
-              filteredProducts.map((product) => (
-                <div
+        <div>
+          <div className="relative">
+            <ScanLine className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-muted" />
+            <input
+              type="text"
+              autoFocus
+              placeholder={t("Buscar o escanear código de barras...")}
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setScanMessage(null);
+              }}
+              onKeyDown={handleSearchKeyDown}
+              className={`${inputClass} h-12 pl-12 text-base`}
+            />
+          </div>
+          {scanMessage && (
+            <p
+              role="status"
+              className={`mt-2 text-sm ${
+                scanMessage.tone === "error" ? "text-warn" : "text-muted"
+              }`}
+            >
+              {scanMessage.text}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <CategoryChip
+            active={category === null}
+            onClick={() => setCategory(null)}
+            label={t("Todos")}
+          />
+          {categories.map((c) => (
+            <CategoryChip
+              key={c}
+              active={category === c}
+              onClick={() => setCategory(c)}
+              label={t(c)}
+            />
+          ))}
+        </div>
+
+        {visibleProducts.length === 0 ? (
+          <p className="py-16 text-center text-sm text-muted">
+            {t("No se encontraron productos")}
+          </p>
+        ) : (
+          <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(160px,1fr))] content-start gap-3 overflow-y-auto pr-1">
+            {visibleProducts.map((product) => {
+              const disabled = product.stock === 0 || cashSession === null;
+              return (
+                <button
                   key={product.id}
-                  className="bg-linear-to-br from-slate-800 to-slate-900 rounded-xl p-5 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-200 group"
+                  type="button"
+                  onClick={() => addToCart(product)}
+                  disabled={disabled}
+                  className="flex h-28 flex-col justify-between rounded-lg border border-line bg-surface p-3 text-left transition-colors duration-150 hover:border-ink disabled:pointer-events-none disabled:opacity-40 active:scale-[0.98]"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">
-                        {product.name}
-                      </h3>
-                      <p className="text-gray-400 text-sm">
-                        {product.category}
-                      </p>
-                    </div>
-
-                    {/* STOCK */}
-                    <div
-                      className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        product.stock > 10
-                          ? "bg-green-500/10 text-green-400"
-                          : product.stock > 5
-                          ? "bg-yellow-500/10 text-yellow-400"
-                          : "bg-red-500/10 text-red-400"
+                  <div className="min-w-0">
+                    <p className="line-clamp-2 text-sm leading-snug font-medium">
+                      {product.name}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted">
+                      {t(product.category || "General")}
+                    </p>
+                  </div>
+                  <div className="flex items-end justify-between gap-2">
+                    <span className="text-lg font-semibold tabular-nums">
+                      {formatMoney(product.price)}
+                    </span>
+                    <span
+                      className={`text-xs tabular-nums ${
+                        product.stock === 0
+                          ? "text-danger"
+                          : product.stock <= LOW_STOCK
+                          ? "text-warn"
+                          : "text-muted"
                       }`}
                     >
-                      {t("Stock")}: {product.stock}
-                    </div>
+                      {product.stock === 0 ? t("Agotado") : product.stock}
+                    </span>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold text-blue-400">
-                      ${product.price.toLocaleString()}
-                    </div>
-
-                    <button
-                      onClick={() => addToCart(product)}
-                      disabled={product.stock === 0}
-                      className="bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:from-gray-600 disabled:to-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:scale-105 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      {t("Agregar")}
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-2 bg-slate-800/50 rounded-xl p-12 text-center border border-slate-700/50">
-                <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">{t("No se encontraron productos")}</p>
-              </div>
-            )}
+                </button>
+              );
+            })}
           </div>
-        </div>
+        )}
+      </section>
 
-        {/* CART */}
-        <div className="lg:col-span-1">
-          <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 sticky top-8">
-            {/* CART HEADER */}
-            <div className="p-6 border-b border-slate-700/50">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <ShoppingCart className="w-5 h-5 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-white">{t("Carrito")}</h3>
-              </div>
-              <p className="text-gray-400 text-sm">{cart.length} {t("productos")}</p>
-            </div>
-
-            {/* CART ITEMS */}
-            <div className="p-4 max-h-96 overflow-y-auto">
-              {cart.length > 0 ? (
-                <div className="space-y-3">
-                  {cart.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/30"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="text-white font-medium text-sm flex-1">
-                          {item.name}
-                        </h4>
-
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="text-red-400 hover:text-red-300 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg p-1">
-                          <button
-                            onClick={() => decreaseQuantity(item.id)}
-                            className="w-6 h-6 flex items-center justify-center text-white hover:bg-slate-600 rounded transition-colors"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-
-                          <span className="text-white font-medium w-8 text-center">
-                            {item.quantity}
-                          </span>
-
-                          <button
-                            onClick={() => increaseQuantity(item.id)}
-                            className="w-6 h-6 flex items-center justify-center text-white hover:bg-slate-600 rounded transition-colors"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-
-                        <div className="text-blue-400 font-bold">
-                          ${(item.price * item.quantity).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <ShoppingCart className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">{t("El carrito está vacío")}</p>
-                </div>
-              )}
-            </div>
-
-            {/* TOTALS */}
-            {cart.length > 0 && (
-              <>
-                <div className="p-6 border-t border-slate-700/50 space-y-3">
-                  <div className="flex justify-between text-gray-400">
-                    <span>{t("Subtotal")}:</span>
-                    <span>${subtotal.toLocaleString()}</span>
-                  </div>
-
-                  <div className="flex justify-between text-gray-400">
-                    <span>{t("Impuesto (19%)")}:</span>
-                    <span>${tax.toFixed(2)}</span>
-                  </div>
-
-                  <div className="flex justify-between text-white text-xl font-bold pt-3 border-t border-slate-700/50">
-                    <span>{t("Total")}:</span>
-                    <span className="text-green-400">${total.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {/* ACTION BUTTONS */}
-                <div className="p-6 pt-0 space-y-3">
-                  <button
-                    onClick={processSale}
-                    className="w-full bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-green-500/30 hover:shadow-green-500/50 hover:scale-105 flex items-center justify-center gap-2"
-                  >
-                    <Check className="w-5 h-5" />
-                    {t("Completar Venta")}
-                  </button>
-
-                  <button
-                    onClick={cancelSale}
-                    className="w-full bg-slate-700/50 hover:bg-red-600/20 text-gray-300 hover:text-red-400 font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-slate-600/50 hover:border-red-500/50 flex items-center justify-center gap-2"
-                  >
-                    <X className="w-5 h-5" />
-                    {t("Cancelar")}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* CONFIRMATION MODAL */}
-      {showConfirmation && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <div className="bg-linear-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-slate-700/50 max-w-md mx-4 animate-in zoom-in duration-200">
-            <div className="w-16 h-16 bg-linear-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Check className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-2xl font-bold text-white text-center mb-2">
-              {t("¡Venta completada!")}
-            </h3>
-            <p className="text-gray-400 text-center">
-              {t("La venta se ha registrado exitosamente")}
+      <aside className="flex min-h-0 flex-col border-l border-line bg-surface">
+        <div className="flex items-center justify-between border-b border-line px-5 py-3">
+          <div>
+            <h2 className="text-sm font-semibold">{t("Ticket")}</h2>
+            <p className="text-xs text-muted tabular-nums">
+              {itemCount} {t("productos")}
             </p>
-            <div className="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700/30">
-              <div className="flex justify-between text-gray-400 mb-2">
-                <span>{t("Total")}:</span>
-                <span className="text-green-400 font-bold text-xl">
-                  ${lastSaleTotal.toFixed(2)}
-                </span>
-              </div>
+          </div>
+          {cart.length > 0 && (
+            <button onClick={cancelSale} className={`${btnGhost} h-8 px-2`}>
+              <X className="h-3.5 w-3.5" />
+              {t("Cancelar")}
+            </button>
+          )}
+        </div>
+
+        {cart.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center px-5 text-sm text-muted">
+            {t("El carrito está vacío")}
+          </div>
+        ) : (
+          <ul className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
+            {cart.map((item) => (
+              <li key={item.id} className="anim-row flex items-center gap-3 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.name}</p>
+                  <p className="text-xs text-muted tabular-nums">
+                    {formatMoney(item.price)} × {item.quantity}
+                  </p>
+                </div>
+
+                <div className="flex items-center rounded-md border border-line">
+                  <button
+                    onClick={() => decreaseQuantity(item.id)}
+                    aria-label={t("Disminuir")}
+                    className="flex h-8 w-8 items-center justify-center text-muted hover:text-ink"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="w-7 text-center text-sm tabular-nums">
+                    {item.quantity}
+                  </span>
+                  <button
+                    onClick={() => increaseQuantity(item.id)}
+                    aria-label={t("Aumentar")}
+                    disabled={item.quantity >= item.stock}
+                    className="flex h-8 w-8 items-center justify-center text-muted hover:text-ink disabled:opacity-30"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+
+                <p className="w-24 text-right text-sm font-medium tabular-nums">
+                  {formatMoney(item.price * item.quantity)}
+                </p>
+
+                <button
+                  onClick={() => removeFromCart(item.id)}
+                  aria-label={t("Quitar")}
+                  className="text-muted transition-colors hover:text-danger"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="shrink-0 space-y-4 border-t border-line p-5">
+          <div className="flex items-end justify-between">
+            <div className="space-y-0.5 text-xs text-muted tabular-nums">
+              <p>
+                {t("Subtotal")} {formatMoney(subtotal)}
+              </p>
+              <p>
+                {t("Impuesto (19%)")} {formatMoney(tax)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-medium text-muted">{t("Total")}</p>
+              <p className="text-4xl leading-none font-semibold tracking-tight tabular-nums">
+                {formatMoney(total)}
+              </p>
             </div>
           </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {paymentOptions.map((option) => {
+              const Icon = option.icon;
+              const active = payment === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setPayment(option.value)}
+                  aria-pressed={active}
+                  className={`flex h-14 flex-col items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors duration-150 ${
+                    active
+                      ? "border-accent bg-accent text-accent-ink"
+                      : "border-line text-muted hover:bg-hover hover:text-ink"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t(option.label)}
+                </button>
+              );
+            })}
+          </div>
+
+          {payment === "efectivo" && (
+            <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-3">
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between rounded-md bg-hover px-3 py-2">
+                  <span className="text-xs text-muted">{t("Recibido")}</span>
+                  <span className="text-lg font-semibold tabular-nums">
+                    {formatMoney(receivedAmount)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between px-3">
+                  <span className="text-xs text-muted">
+                    {cashShort ? t("Faltan") : t("Cambio")}
+                  </span>
+                  <span
+                    className={`font-medium tabular-nums ${
+                      cashShort ? "text-danger" : ""
+                    }`}
+                  >
+                    {cashShort
+                      ? formatMoney(total - receivedAmount)
+                      : formatMoney(change)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReceived(String(Math.ceil(total)))}
+                  disabled={cart.length === 0}
+                  className={`${btnGhost} w-full border border-line`}
+                >
+                  {t("Exacto")}
+                </button>
+              </div>
+              <Keypad onKey={pressKey} />
+            </div>
+          )}
+
+          <button
+            onClick={processSale}
+            disabled={!canComplete || submitting}
+            className={`${btnPrimary} h-14 w-full text-base`}
+          >
+            <Check className="h-5 w-5" />
+            {t("Completar venta")}
+          </button>
         </div>
-      )}
+      </aside>
+
+      {completed &&
+        createPortal(
+          <div
+            role="status"
+            className="anim-toast fixed right-6 bottom-6 z-50 flex items-center gap-4 rounded-lg border border-line bg-surface px-5 py-4"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-success text-surface">
+              <Check className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-medium">{t("Venta completada")}</p>
+              <p className="text-sm text-muted tabular-nums">
+                {t("Total")} {formatMoney(completed.total)}
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
+  );
+}
+
+function CategoryChip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`h-8 rounded-full border px-4 text-sm transition-colors duration-150 ${
+        active
+          ? "border-accent bg-accent font-medium text-accent-ink"
+          : "border-line text-muted hover:text-ink"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

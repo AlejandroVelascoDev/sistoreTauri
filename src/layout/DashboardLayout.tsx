@@ -1,16 +1,27 @@
-import { Outlet } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
+import { useEffect, useRef } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import TopNav from "../components/TopNav";
 
 export default function DashboardLayout() {
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+  const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => { mainRef.current?.scrollTo(0, 0); }, [location.pathname]);
+  const fullBleed = location.pathname === "/sales";
 
-      <div className="flex-1 overflow-y-auto bg-gray-100">
-        <main>
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-bg">
+      <TopNav />
+
+      <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          key={location.pathname}
+          className={`anim-page ${
+            fullBleed ? "h-full" : "mx-auto max-w-6xl px-8 py-8"
+          }`}
+        >
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
